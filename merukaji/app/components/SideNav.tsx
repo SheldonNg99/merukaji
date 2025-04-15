@@ -152,7 +152,7 @@ export default function SideNav({ isDesktopSidebarOpen, onDesktopSidebarChange }
                                     {session ? (
                                         <li
                                             onClick={() => signOut({ callbackUrl: '/' })}
-                                            className="px-4 py-3 hover:bg-gray-50 cursor-pointer transition-colors flex items-center gap-3 text-sm text-gray-700 text-red-600 hover:text-red-700"
+                                            className="px-4 py-3 hover:bg-gray-50 cursor-pointer transition-colors flex items-center gap-3 text-sm text-red-600 hover:text-red-700"
                                         >
                                             <LogOut className="h-4 w-4 text-red-400" />
                                             <span>Log Out</span>
