@@ -10,8 +10,12 @@
   },
   "dependencies": {
     "@auth/mongodb-adapter": "^3.8.0",
+    "@deemlol/next-icons": "^0.1.9",
+    "@headlessui/react": "^2.2.1",
+    "@types/react-leaflet": "^2.8.3",
     "axios": "^1.8.4",
     "bcryptjs": "^3.0.2",
+    "lucide-react": "^0.488.0",
     "mongodb": "^6.15.0",
     "next": "15.3.0",
     "next-auth": "^4.24.11",
