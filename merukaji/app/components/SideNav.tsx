@@ -1,15 +1,18 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { ChevronLeft, ChevronRight, ChevronDown, Settings, CreditCard, Layout, History, LogOut } from 'lucide-react';
 import Link from 'next/link';
-import { useSession, signIn, signOut } from 'next-auth/react';
+import { useSession, signOut } from 'next-auth/react';
 
 import { SideNavProps } from '@/types/sidenav-types';
 
 export default function SideNav({ isDesktopSidebarOpen, onDesktopSidebarChange }: SideNavProps) {
+    const router = useRouter();
     const [isMobileOpen, setIsMobileOpen] = useState(false);
     const [isProfileOpen, setIsProfileOpen] = useState(false);
+
     const { data: session } = useSession();
 
     const history = [
@@ -20,6 +23,10 @@ export default function SideNav({ isDesktopSidebarOpen, onDesktopSidebarChange }
         'history no 2',
         'history no 1',
     ];
+
+    const closeProfileDropdown = () => {
+        setIsProfileOpen(false);
+    };
 
     return (
         <>
@@ -125,12 +132,19 @@ export default function SideNav({ isDesktopSidebarOpen, onDesktopSidebarChange }
                                 shadow-lg overflow-hidden mx-2
                                 ${!isDesktopSidebarOpen ? 'lg:left-full lg:w-52 lg:bottom-2 lg:rounded-l-none lg:rounded-r-lg' : 'left-0 w-[calc(100%-16px)]'}`}>
                                 <ul className="divide-y divide-gray-50">
-                                    <li className="px-4 py-3 hover:bg-gray-50 cursor-pointer transition-colors flex items-center gap-3 text-sm text-gray-700">
+                                    <li
+                                        onClick={closeProfileDropdown}
+                                        className="px-4 py-3 hover:bg-gray-50 cursor-pointer transition-colors flex items-center gap-3 text-sm text-gray-700"
+                                    >
                                         <CreditCard className="h-4 w-4 text-gray-400" />
                                         <span>Plan Details</span>
                                     </li>
                                     <Link href="/settings">
-                                        <li className="px-4 py-3 hover:bg-gray-50 cursor-pointer transition-colors flex items-center gap-3 text-sm text-gray-700">
+                                        <li
+                                            onClick={() => {
+                                                closeProfileDropdown();
+                                            }}
+                                            className="px-4 py-3 hover:bg-gray-50 cursor-pointer transition-colors flex items-center gap-3 text-sm text-gray-700">
                                             <Settings className="h-4 w-4 text-gray-400" />
                                             <span>Settings</span>
                                         </li>
@@ -141,7 +155,10 @@ export default function SideNav({ isDesktopSidebarOpen, onDesktopSidebarChange }
                                     </li>
                                     {session ? (
                                         <li
-                                            onClick={() => signOut({ callbackUrl: '/' })}
+                                            onClick={() => {
+                                                closeProfileDropdown();
+                                                signOut({ callbackUrl: '/' });
+                                            }}
                                             className="px-4 py-3 hover:bg-gray-50 cursor-pointer transition-colors flex items-center gap-3 text-sm text-red-600 hover:text-red-700"
                                         >
                                             <LogOut className="h-4 w-4 text-red-400" />
@@ -149,7 +166,10 @@ export default function SideNav({ isDesktopSidebarOpen, onDesktopSidebarChange }
                                         </li>
                                     ) : (
                                         <li
-                                            onClick={() => signIn('google')}
+                                            onClick={() => {
+                                                closeProfileDropdown();
+                                                router.push('/login'); // Use Next.js router for navigation
+                                            }}
                                             className="px-4 py-3 hover:bg-gray-50 cursor-pointer transition-colors flex items-center gap-3 text-sm text-gray-700"
                                         >
                                             <LogOut className="h-4 w-4 text-gray-400" />
