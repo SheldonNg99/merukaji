@@ -2,11 +2,10 @@
 
 import { useState } from 'react';
 import { ChevronLeft, ChevronRight, ChevronDown, Settings, CreditCard, Layout, History, LogOut } from 'lucide-react';
-
+import Link from 'next/link';
+import { useSession, signIn, signOut } from 'next-auth/react';
 
 import { SideNavProps } from '@/types/sidenav-types';
-import { useSession } from 'next-auth/react';
-import { signIn, signOut } from 'next-auth/react';
 
 export default function SideNav({ isDesktopSidebarOpen, onDesktopSidebarChange }: SideNavProps) {
     const [isMobileOpen, setIsMobileOpen] = useState(false);
@@ -108,25 +107,14 @@ export default function SideNav({ isDesktopSidebarOpen, onDesktopSidebarChange }
                                 ${!isDesktopSidebarOpen ? 'lg:justify-center lg:px-2' : 'px-4'}`}
                         >
                             <div className={`flex items-center ${!isDesktopSidebarOpen ? 'lg:justify-center' : 'space-x-3'}`}>
-                                {session ? (
-                                    <>
-                                        <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0">
-                                            <span className="text-xs text-gray-600">{session.user?.name?.[0] || 'U'}</span>
-                                        </div>
-                                        <span className={`text-sm font-medium ${!isDesktopSidebarOpen ? 'lg:hidden' : ''}`}>
-                                            {session.user?.email || 'User'}
-                                        </span>
-                                    </>
-                                ) : (
-                                    <>
-                                        <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0">
-                                            <span className="text-xs text-gray-600">G</span>
-                                        </div>
-                                        <span className={`text-sm font-medium ${!isDesktopSidebarOpen ? 'lg:hidden' : ''}`}>
-                                            Guest User
-                                        </span>
-                                    </>
-                                )}
+                                <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0">
+                                    <span className="text-xs text-gray-600">
+                                        {session?.user?.name?.[0] || 'U'}
+                                    </span>
+                                </div>
+                                <span className={`text-sm font-medium ${!isDesktopSidebarOpen ? 'lg:hidden' : ''}`}>
+                                    {session?.user?.email || 'username@email.com'}
+                                </span>
                             </div>
                             <ChevronDown className={`h-4 w-4 transform transition-transform duration-300 ml-auto
                                 ${isProfileOpen ? 'rotate-180' : ''} ${!isDesktopSidebarOpen ? 'lg:hidden' : ''}`} />
@@ -141,10 +129,12 @@ export default function SideNav({ isDesktopSidebarOpen, onDesktopSidebarChange }
                                         <CreditCard className="h-4 w-4 text-gray-400" />
                                         <span>Plan Details</span>
                                     </li>
-                                    <li className="px-4 py-3 hover:bg-gray-50 cursor-pointer transition-colors flex items-center gap-3 text-sm text-gray-700">
-                                        <Settings className="h-4 w-4 text-gray-400" />
-                                        <span>Settings</span>
-                                    </li>
+                                    <Link href="/settings">
+                                        <li className="px-4 py-3 hover:bg-gray-50 cursor-pointer transition-colors flex items-center gap-3 text-sm text-gray-700">
+                                            <Settings className="h-4 w-4 text-gray-400" />
+                                            <span>Settings</span>
+                                        </li>
+                                    </Link>
                                     <li className="px-4 py-3 hover:bg-gray-50 cursor-pointer transition-colors flex items-center gap-3 text-sm text-gray-700">
                                         <Layout className="h-4 w-4 text-gray-400" />
                                         <span>View All Plans</span>
