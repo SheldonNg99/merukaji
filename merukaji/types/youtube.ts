@@ -28,3 +28,9 @@ export interface ProcessedVideo {
     metadata: VideoMetadata;
     transcript: TranscriptSegment[];
 }
+
+export interface TranscriptResponse {
+    success: boolean;
+    metadata: VideoMetadata;
+    transcript: TranscriptSegment[];
+}
