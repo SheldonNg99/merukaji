@@ -1,0 +1,2003 @@
+This file is a merged representation of the entire codebase, combined into a single document by Repomix.
+
+<file_summary>
+This section contains a summary of this file.
+
+<purpose>
+This file contains a packed representation of the entire repository's contents.
+It is designed to be easily consumable by AI systems for analysis, code review,
+or other automated processes.
+</purpose>
+
+<file_format>
+The content is organized as follows:
+1. This summary section
+2. Repository information
+3. Directory structure
+4. Repository files, each consisting of:
+  - File path as an attribute
+  - Full contents of the file
+</file_format>
+
+<usage_guidelines>
+- This file should be treated as read-only. Any changes should be made to the
+  original repository files, not this packed version.
+- When processing this file, use the file path to distinguish
+  between different files in the repository.
+- Be aware that this file may contain sensitive information. Handle it with
+  the same level of security as you would the original repository.
+</usage_guidelines>
+
+<notes>
+- Some files may have been excluded based on .gitignore rules and Repomix's configuration
+- Binary files are not included in this packed representation. Please refer to the Repository Structure section for a complete list of file paths, including binary files
+- Files matching patterns in .gitignore are excluded
+- Files matching default ignore patterns are excluded
+- Files are sorted by Git change count (files with more changes are at the bottom)
+</notes>
+
+<additional_info>
+
+</additional_info>
+
+</file_summary>
+
+<directory_structure>
+app/
+  (auth)/
+    home/
+      page.tsx
+    settings/
+      page.tsx
+    upgrade/
+      page.tsx
+    layout.tsx
+    page.tsx
+  api/
+    auth/
+      [...nextauth]/
+        route.ts
+    youtube/
+      transcript/
+        route.ts
+  components/
+    HomePage.tsx
+    SettingsPage.tsx
+    SideNav.tsx
+  login/
+    page.tsx
+  client-layout.tsx
+  globals.css
+  layout.tsx
+  page.tsx
+  providers.tsx
+lib/
+  logger.ts
+  mongodb.ts
+  youtube.ts
+public/
+  file.svg
+  globe.svg
+  logo.svg
+  next.svg
+  vercel.svg
+  window.svg
+types/
+  next-auth.d.ts
+  sidenav-types.ts
+  youtube.ts
+.gitignore
+eslint.config.mjs
+next.config.ts
+package.json
+postcss.config.mjs
+README.md
+tsconfig.json
+</directory_structure>
+
+<files>
+This section contains the contents of the repository's files.
+
+<file path="app/(auth)/home/page.tsx">
+'use client';
+
+import HomePage from "@/app/components/HomePage";
+
+export default function AuthenticatedHomePage() {
+    return <HomePage />;
+}
+</file>
+
+<file path="app/(auth)/settings/page.tsx">
+'use client';
+
+import { useSession } from 'next-auth/react';
+import { redirect } from 'next/navigation';
+import SettingsPage from '@/app/components/SettingsPage';
+
+export default function Settings() {
+    const { status } = useSession({
+        required: true,
+        onUnauthenticated() {
+            redirect('/login');
+        },
+    });
+
+    if (status === "loading") {
+        return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
+    }
+
+    return <SettingsPage />;
+}
+</file>
+
+<file path="app/(auth)/upgrade/page.tsx">
+'use client';
+
+import { useState } from 'react';
+import { CheckCircle2, Info, ArrowRight } from 'lucide-react';
+import { useSession } from 'next-auth/react';
+import SideNav from '@/app/components/SideNav';
+import Link from 'next/link';
+
+export default function UpgradePage() {
+    const { data: session, status } = useSession();
+    const [annualBilling, setAnnualBilling] = useState(true);
+
+    // Sample plans data - this would come from your backend in a real implementation
+    const plans = [
+        {
+            name: 'Free',
+            description: 'Basic video summarization',
+            price: 0,
+            priceId: 'price_free',
+            features: [
+                'Limited to 3 summaries per day',
+                'Basic summary length',
+                'Standard response time',
+                'Public videos only'
+            ],
+        },
+        {
+            name: 'Pro',
+            description: 'For everyday productivity',
+            price: annualBilling ? 17 : 19,
+            priceId: annualBilling ? 'price_pro_annual' : 'price_pro_monthly',
+            features: [
+                'Up to 20 summaries per day',
+                'Extended summary length',
+                'Faster response time',
+                'Save summaries to your library',
+                'Public and unlisted videos'
+            ],
+            popular: true,
+        },
+        {
+            name: 'Max',
+            description: '5-20x more usage than Pro',
+            price: annualBilling ? 100 : 120,
+            priceId: annualBilling ? 'price_max_annual' : 'price_max_monthly',
+            features: [
+                'Unlimited summaries',
+                'Comprehensive summary length',
+                'Priority processing',
+                'Save and organize summaries',
+                'Full video library management',
+                'Private video support with account linking',
+                'Advanced AI model selection'
+            ],
+        },
+    ];
+
+    const handleUpgrade = (planName: string, priceId: string) => {
+        // This would connect to your Stripe checkout in a real implementation
+        console.log(`Upgrading to ${planName} with price ID ${priceId}`);
+        // Redirect to checkout or payment processing
+    };
+
+    return (
+        <div className="flex min-h-screen">
+            <main className={`flex-1 ${session ? 'lg:ml-16' : ''}`}>
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+                    <div className="text-center mb-10">
+                        <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-3">
+                            Choose the Right Plan for You
+                        </h1>
+                        <p className="text-lg text-gray-600 max-w-3xl mx-auto">
+                            Upgrade to unlock more features and get the most out of your video summaries
+                        </p>
+                    </div>
+
+                    {/* Billing toggle */}
+                    <div className="flex justify-center mb-12">
+                        <div className="bg-gray-100 p-1 rounded-lg inline-flex items-center">
+                            <button
+                                className={`px-4 py-2 rounded-md text-sm font-medium ${annualBilling
+                                    ? 'bg-white text-gray-900 shadow-sm'
+                                    : 'text-gray-700 hover:bg-gray-50'
+                                    }`}
+                                onClick={() => setAnnualBilling(true)}
+                            >
+                                Annual (Save 10%)
+                            </button>
+                            <button
+                                className={`px-4 py-2 rounded-md text-sm font-medium ${!annualBilling
+                                    ? 'bg-white text-gray-900 shadow-sm'
+                                    : 'text-gray-700 hover:bg-gray-50'
+                                    }`}
+                                onClick={() => setAnnualBilling(false)}
+                            >
+                                Monthly
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Plans */}
+                    <div className="grid md:grid-cols-3 gap-8">
+                        {plans.map((plan) => (
+                            <div
+                                key={plan.name}
+                                className={`bg-white rounded-xl overflow-hidden border ${plan.popular ? 'border-[#FFAB5B] shadow-lg' : 'border-gray-200'
+                                    }`}
+                            >
+                                {plan.popular && (
+                                    <div className="bg-[#FFAB5B] text-white text-sm font-medium py-1 text-center">
+                                        Most Popular
+                                    </div>
+                                )}
+                                <div className="p-6">
+                                    <div className="mb-5">
+                                        <h2 className="text-2xl font-bold text-gray-900 mb-1">{plan.name}</h2>
+                                        <p className="text-gray-600">{plan.description}</p>
+                                    </div>
+
+                                    <div className="mb-6">
+                                        {plan.price === 0 ? (
+                                            <div className="text-3xl font-bold text-gray-900">Free</div>
+                                        ) : (
+                                            <div className="flex items-baseline">
+                                                <span className="text-3xl font-bold text-gray-900">USD {plan.price}</span>
+                                                <span className="text-gray-600 ml-2 text-sm">
+                                                    / month {annualBilling ? 'billed annually' : ''}
+                                                </span>
+                                            </div>
+                                        )}
+
+                                        {plan.name === 'Pro' && annualBilling && (
+                                            <div className="flex items-center mt-2 text-sm text-gray-600">
+                                                <Info className="h-4 w-4 mr-1" />
+                                                Pay annually to save 10%
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    <button
+                                        onClick={() => handleUpgrade(plan.name, plan.priceId)}
+                                        className={`w-full py-3 px-4 rounded-xl font-medium flex items-center justify-center ${plan.name === 'Free'
+                                            ? 'bg-gray-100 text-gray-800 hover:bg-gray-200'
+                                            : plan.popular
+                                                ? 'bg-[#E99947] hover:bg-[#FF9B3B] text-white'
+                                                : 'bg-gray-900 hover:bg-black text-white'
+                                            }`}
+                                    >
+                                        {plan.name === 'Free'
+                                            ? 'Current Plan'
+                                            : `Get ${plan.name} Plan`}
+                                        {plan.name !== 'Free' && <ArrowRight className="ml-2 h-4 w-4" />}
+                                    </button>
+                                </div>
+
+                                <div className="border-t border-gray-100 p-6">
+                                    <h3 className="font-medium text-gray-900 mb-4">
+                                        {plan.name === 'Free' ? 'What\'s included:' : `Everything in ${plan.name === 'Pro' ? 'Free' : 'Pro'}, plus:`}
+                                    </h3>
+                                    <ul className="space-y-3">
+                                        {plan.features.map((feature, index) => (
+                                            <li key={index} className="flex">
+                                                <CheckCircle2 className="h-5 w-5 text-[#E99947] flex-shrink-0 mr-3" />
+                                                <span className="text-gray-700">{feature}</span>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+
+                    <div className="mt-12 text-center text-gray-600 text-sm">
+                        <p>Prices shown do not include applicable tax. Usage limits may apply.</p>
+                        <p className="mt-2">
+                            Need a custom plan? <Link href="/contact" className="text-[#FFAB5B] hover:text-[#FF9B3B] font-medium">Contact us</Link>
+                        </p>
+                    </div>
+                </div>
+            </main>
+        </div>
+    );
+}
+</file>
+
+<file path="app/(auth)/layout.tsx">
+'use client';
+
+import ClientLayout from "../client-layout";
+import { useSession } from "next-auth/react";
+import { redirect } from "next/navigation";
+
+export default function AuthenticatedLayout({
+    children,
+}: {
+    children: React.ReactNode;
+}) {
+    const { status } = useSession({
+        required: true,
+        onUnauthenticated() {
+            redirect('/login');
+        },
+    });
+
+    if (status === "loading") {
+        return <div>Loading...</div>;
+    }
+
+    return <ClientLayout>{children}</ClientLayout>;
+}
+</file>
+
+<file path="app/(auth)/page.tsx">
+'use client';
+
+import HomePage from "@/app/components/HomePage";
+
+export default function AuthenticatedPage() {
+    return <HomePage />;
+}
+</file>
+
+<file path="app/api/auth/[...nextauth]/route.ts">
+import NextAuth, { AuthOptions } from "next-auth";
+import GoogleProvider from "next-auth/providers/google";
+import { MongoDBAdapter } from "@auth/mongodb-adapter";
+import clientPromise from "@/lib/mongodb";
+
+export const authOptions: AuthOptions = {
+    adapter: MongoDBAdapter(clientPromise),
+    providers: [
+        GoogleProvider({
+            clientId: process.env.GOOGLE_CLIENT_ID!,
+            clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+        }),
+    ],
+    callbacks: {
+        async session({ session, user }) {
+            if (session?.user) {
+                session.user.id = user.id;
+                session.user.tier = user.tier || 'free';
+            }
+            return session;
+        },
+    },
+    pages: {
+        signIn: '/login',
+        error: '/login', // Add this line to handle errors
+    },
+};
+
+const handler = NextAuth(authOptions);
+export { handler as GET, handler as POST };
+</file>
+
+<file path="app/api/youtube/transcript/route.ts">
+// api/youtube/transcript/route.ts
+import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '../../auth/[...nextauth]/route';
+import { extractVideoId, getVideoTranscript, getVideoMetadata } from '@/lib/youtube';
+import { logger } from '@/lib/logger';
+
+export async function POST(req: NextRequest) {
+    const requestId = crypto.randomUUID(); // Generate unique ID for this request
+
+    try {
+        logger.info('YouTube transcript request received', {
+            requestId,
+            method: req.method
+        });
+
+        // 1. Get user session
+        const session = await getServerSession(authOptions);
+        if (!session || !session.user) {
+            logger.warn('Unauthorized transcript request', { requestId });
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
+        logger.info('Authenticated user request', {
+            requestId,
+            userId: session.user.id,
+            userTier: session.user.tier
+        });
+
+        // 2. Get request data
+        const data = await req.json();
+        const { url } = data;
+
+        if (!url) {
+            logger.warn('Missing YouTube URL', { requestId });
+            return NextResponse.json({ error: 'YouTube URL is required' }, { status: 400 });
+        }
+
+        // 3. Extract video ID from URL
+        const videoId = extractVideoId(url);
+        if (!videoId) {
+            logger.warn('Invalid YouTube URL format', { requestId, url });
+            return NextResponse.json({ error: 'Invalid YouTube URL' }, { status: 400 });
+        }
+
+        logger.debug('Video ID extracted successfully', { requestId, videoId, originalUrl: url });
+
+        // 4. Get video metadata and transcript in parallel
+        const startTime = Date.now();
+        logger.debug('Fetching metadata and transcript', { requestId, videoId });
+
+        const [metadata, transcript] = await Promise.all([
+            getVideoMetadata(videoId),
+            getVideoTranscript(videoId)
+        ]);
+
+        const duration = Date.now() - startTime;
+        logger.info('Fetched video data successfully', {
+            requestId,
+            videoId,
+            duration: `${duration}ms`,
+            transcriptSegments: transcript.length,
+            videoTitle: metadata.title
+        });
+
+        // 5. Return result
+        return NextResponse.json({
+            success: true,
+            metadata,
+            transcript
+        });
+
+    } catch (error: unknown) {
+        logger.error('Failed to process YouTube transcript', {
+            requestId,
+            error: error instanceof Error ? error.message : String(error),
+            stack: error instanceof Error ? error.stack : undefined
+        });
+
+        return NextResponse.json({
+            error: `Failed to process video: ${error instanceof Error ? error.message : String(error)}`
+        }, { status: 500 });
+    }
+}
+</file>
+
+<file path="app/components/HomePage.tsx">
+'use client';
+
+import { Search } from 'lucide-react';
+import { useState } from 'react';
+
+export default function HomePage() {
+    const [isFocused, setIsFocused] = useState(false);
+
+    return (
+        <div className="min-h-screen bg-gradient-to-b from-white to-orange-50/30 flex flex-col items-center justify-center px-4">
+            {/* Welcome Message */}
+            <div className="text-center mb-12 animate-fade-in">
+                <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-2">
+                    Welcome Back!
+                </h1>
+                <p className="text-gray-500 text-lg">
+                    What would you like to summarize today?
+                </p>
+            </div>
+
+            {/* Search Section */}
+            <div className={`w-full max-w-2xl transition-all duration-300 ease-in-out transform
+        ${isFocused ? 'scale-105' : 'scale-100'}`}>
+                <div className="flex gap-3 bg-white p-2 rounded-2xl shadow-lg shadow-orange-100/50">
+                    {/* Search Input */}
+                    <div className="flex-1">
+                        <input
+                            type="text"
+                            placeholder="Enter YouTube URL..."
+                            className="w-full px-6 py-4 rounded-xl bg-transparent focus:outline-none text-gray-700 placeholder-gray-400"
+                            onFocus={() => setIsFocused(true)}
+                            onBlur={() => setIsFocused(false)}
+                        />
+                    </div>
+
+                    {/* AI Model Dropdown */}
+                    <div className="self-center">
+                        <select
+                            className="h-12 px-4 rounded-xl bg-gray-50 border-none appearance-none pr-8 focus:outline-none text-gray-600 cursor-pointer hover:bg-gray-100 transition-colors"
+                        >
+                            <option value="">AI Model</option>
+                            <option value="openai">OpenAI</option>
+                            <option value="google">Google AI</option>
+                        </select>
+                    </div>
+
+                    {/* Search Button */}
+                    <button
+                        className="px-6 py-3 bg-gradient-to-r from-orange-400 to-orange-500 hover:from-orange-500 hover:to-orange-600 text-white rounded-xl transition-all duration-300 ease-in-out hover:shadow-md flex items-center justify-center"
+                    >
+                        <Search className="w-5 h-5" />
+                    </button>
+                </div>
+
+                {/* Quick Tips */}
+                <div className="mt-6 text-center text-sm text-gray-400">
+                    Try pasting a YouTube URL to get started
+                </div>
+            </div>
+        </div>
+    );
+}
+</file>
+
+<file path="app/components/SettingsPage.tsx">
+'use client';
+
+import { useState } from 'react';
+import { CreditCard, User, Check } from 'lucide-react';
+
+export default function SettingsPage() {
+    const [activeTab, setActiveTab] = useState('profile');
+    const [username, setUsername] = useState('');
+
+    const handleSaveChanges = () => {
+        // This will be connected to the backend later
+        console.log('Saving changes:', { username });
+    };
+
+    return (
+        <div className="w-full min-h-screen bg-gray-50">
+            <div className="max-w-5xl mx-auto py-16">
+                <h1 className="text-xl font-medium mb-6 text-gray-900">Settings</h1>
+                <div className="flex flex-col lg:flex-row gap-8">
+                    {/* Settings tabs */}
+                    <div className="w-full lg:w-64">
+                        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                            <button
+                                onClick={() => setActiveTab('profile')}
+                                className={`w-full px-4 py-3.5 text-left transition-colors flex items-center gap-3 border-l-2 ${activeTab === 'profile'
+                                    ? 'bg-orange-50 text-orange-700 border-l-orange-500 font-medium'
+                                    : 'text-gray-700 hover:bg-gray-50 border-l-transparent'
+                                    }`}
+                            >
+                                <User className="h-4 w-4" />
+                                <span>Profile</span>
+                            </button>
+                            <button
+                                onClick={() => setActiveTab('billing')}
+                                className={`w-full px-4 py-3.5 text-left transition-colors flex items-center gap-3 border-l-2 ${activeTab === 'billing'
+                                    ? 'bg-orange-50 text-orange-700 border-l-orange-500 font-medium'
+                                    : 'text-gray-700 hover:bg-gray-50 border-l-transparent'
+                                    }`}
+                            >
+                                <CreditCard className="h-4 w-4" />
+                                <span>Billing</span>
+                            </button>
+
+                        </div>
+                    </div>
+
+                    {/* Main content area */}
+                    <div className="flex-1">
+                        {activeTab === 'profile' && (
+                            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                                <h2 className="text-lg font-medium text-gray-900 mb-6">Your Profile</h2>
+
+                                <div className="space-y-6">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        <div>
+                                            <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-1">
+                                                Username
+                                            </label>
+                                            <input
+                                                type="text"
+                                                id="username"
+                                                value={username}
+                                                onChange={(e) => setUsername(e.target.value)}
+                                                className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-transparent transition-all"
+                                                placeholder="Enter your username"
+                                            />
+                                        </div>
+
+                                        <div>
+                                            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+                                                Email
+                                            </label>
+                                            <input
+                                                type="email"
+                                                id="email"
+                                                className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-transparent transition-all"
+                                                value="user@example.com"
+                                                disabled
+                                            />
+                                            <p className="mt-1 text-xs text-gray-500">Your email cannot be changed</p>
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <label htmlFor="bio" className="block text-sm font-medium text-gray-700 mb-1">
+                                            Bio
+                                        </label>
+                                        <textarea
+                                            id="bio"
+                                            className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-transparent transition-all"
+                                            rows={3}
+                                            placeholder="Tell us about yourself"
+                                        />
+                                    </div>
+
+                                    <div className="flex justify-end">
+                                        <button
+                                            onClick={handleSaveChanges}
+                                            className="px-5 py-2.5 bg-orange-500 hover:bg-orange-600 text-white rounded-lg transition-colors shadow-sm"
+                                        >
+                                            Save changes
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {activeTab === 'billing' && (
+                            <div className="space-y-6">
+                                {/* Current Plan Card */}
+                                <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                                    <div className="p-6">
+                                        <h2 className="text-lg font-medium text-gray-900 mb-4">Current Plan</h2>
+
+                                        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                                            <div>
+                                                <div className="flex items-center gap-2 mb-2">
+                                                    <span className="inline-block px-2.5 py-1 bg-gray-100 text-gray-700 text-xs font-medium rounded-full">Free Plan</span>
+                                                    <span className="text-gray-500 text-sm">0 / 3 summaries used today</span>
+                                                </div>
+                                                <p className="text-gray-600 mb-3">
+                                                    Basic functionality with limited features.
+                                                </p>
+                                                <ul className="space-y-2 text-sm text-gray-600">
+                                                    <li className="flex items-center">
+                                                        <Check className="h-4 w-4 text-green-500 mr-2" />
+                                                        <span>3 free summaries per day</span>
+                                                    </li>
+                                                    <li className="flex items-center">
+                                                        <Check className="h-4 w-4 text-green-500 mr-2" />
+                                                        <span>Basic summary length</span>
+                                                    </li>
+                                                    <li className="flex items-center">
+                                                        <Check className="h-4 w-4 text-green-500 mr-2" />
+                                                        <span>Standard quality model</span>
+                                                    </li>
+                                                </ul>
+                                            </div>
+
+                                            <div className="flex-shrink-0">
+                                                <button className="w-full md:w-auto px-5 py-2.5 bg-gradient-to-r from-orange-500 to-orange-400 hover:from-orange-600 hover:to-orange-500 text-white rounded-lg transition-all shadow-sm">
+                                                    Upgrade to Premium
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="bg-orange-50 px-6 py-4 border-t border-orange-100">
+                                        <div className="flex items-start gap-3">
+                                            <div className="flex-shrink-0 bg-orange-100 p-2 rounded-lg">
+                                                <CreditCard className="h-5 w-5 text-orange-500" />
+                                            </div>
+                                            <div>
+                                                <h3 className="text-sm font-medium text-gray-900">Premium Plan Benefits</h3>
+                                                <p className="text-sm text-gray-600 mt-1">
+                                                    Upgrade to Premium for unlimited summaries, longer detailed summaries, and higher quality AI models.
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Payment Information Card */}
+                                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                                    <h2 className="text-lg font-medium text-gray-900 mb-4">Payment Information</h2>
+
+                                    <div className="flex items-center justify-center h-32 bg-gray-50 rounded-lg border border-dashed border-gray-300">
+                                        <div className="text-center">
+                                            <p className="text-gray-600 mb-1">No payment method on file</p>
+                                            <p className="text-sm text-gray-500">
+                                                Payment methods will be added when you upgrade to a paid plan
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Subscription Management Card */}
+                                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                                    <h2 className="text-lg font-medium text-gray-900 mb-4">Subscription Management</h2>
+
+                                    <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+                                        <p className="text-gray-600 mb-4">Your subscription renews automatically at the end of each billing period.</p>
+
+                                        <button className="text-sm text-gray-400 cursor-not-allowed flex items-center gap-1" disabled>
+                                            <span>Cancel subscription</span>
+                                            <span className="text-xs bg-gray-200 text-gray-500 px-2 py-0.5 rounded-full">Free Plan</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}
+</file>
+
+<file path="app/components/SideNav.tsx">
+'use client';
+
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { ChevronLeft, ChevronRight, ChevronDown, Settings, CreditCard, Layout, History, LogOut } from 'lucide-react';
+import Link from 'next/link';
+import { useSession, signOut } from 'next-auth/react';
+
+import { SideNavProps } from '@/types/sidenav-types';
+
+export default function SideNav({ isDesktopSidebarOpen, onDesktopSidebarChange }: SideNavProps) {
+    const router = useRouter();
+    const [isMobileOpen, setIsMobileOpen] = useState(false);
+    const [isProfileOpen, setIsProfileOpen] = useState(false);
+
+    const { data: session } = useSession();
+
+    const history = [
+        'history no 6',
+        'history no 5',
+        'history no 4',
+        'history no 3',
+        'history no 2',
+        'history no 1',
+    ];
+
+    const closeProfileDropdown = () => {
+        setIsProfileOpen(false);
+    };
+
+    return (
+        <>
+            {/* Mobile Toggle Button */}
+            <button
+                onClick={() => setIsMobileOpen(true)}
+                className="lg:hidden fixed top-4 left-4 z-50 text-gray-700 hover:text-gray-900 transition-colors"
+            >
+                <ChevronRight className={`h-6 w-6 transform transition-transform duration-300 ${isMobileOpen ? 'rotate-180' : ''}`} />
+            </button>
+
+            {/* Overlay for mobile */}
+            {isMobileOpen && (
+                <div
+                    className="lg:hidden fixed inset-0 bg-black/20 backdrop-blur-sm z-40"
+                    onClick={() => setIsMobileOpen(false)}
+                />
+            )}
+
+            {/* Side Navigation */}
+            <div className={`
+                fixed top-0 left-0 h-full bg-white z-50 
+                transform transition-all duration-300 ease-in-out
+                ${isMobileOpen ? 'translate-x-0 w-64' : '-translate-x-full w-64'} 
+                ${!isDesktopSidebarOpen ? 'lg:w-16 lg:translate-x-0' : 'lg:w-64 lg:translate-x-0'}
+                flex flex-col
+                border-r border-gray-100
+            `}>
+                {/* Header with Toggle Buttons */}
+                <div className="h-16 flex items-center border-b border-gray-100 bg-gray-50/50">
+                    <div className={`flex items-center w-full ${!isDesktopSidebarOpen ? 'lg:justify-center' : 'px-4'}`}>
+                        {/* Mobile Toggle */}
+                        <button
+                            onClick={() => setIsMobileOpen(false)}
+                            className="lg:hidden text-gray-700 hover:text-gray-900 transition-colors"
+                        >
+                            <ChevronLeft className="h-6 w-6" />
+                        </button>
+
+                        {/* Desktop Toggle */}
+                        <button
+                            onClick={() => onDesktopSidebarChange(!isDesktopSidebarOpen)}
+                            className="hidden lg:flex text-gray-700 hover:text-gray-900 transition-colors"
+                        >
+                            <ChevronLeft className={`h-6 w-6 transform transition-transform duration-300 ${!isDesktopSidebarOpen ? 'rotate-180' : ''}`} />
+                        </button>
+
+                        <h1 className={`text-xl font-medium text-gray-900 ml-4 ${!isDesktopSidebarOpen ? 'lg:hidden' : ''}`}>
+                            Merukaji
+                        </h1>
+                    </div>
+                </div>
+
+                {/* History Section */}
+                <div className="flex-1 overflow-y-auto">
+                    <div className={`pt-6 ${!isDesktopSidebarOpen ? 'lg:px-2' : 'px-4'}`}>
+                        <h2 className={`flex text-xs font-medium text-black text-bold uppercase tracking-wider mb-4 
+                            ${!isDesktopSidebarOpen ? 'lg:hidden' : ''}`}>
+                            <History className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                            <span className="ml-3">
+                                History
+                            </span>
+                        </h2>
+                        <ul className={`${!isDesktopSidebarOpen ? 'lg:hidden' : ''}`}>
+                            {history.map((item, index) => (
+                                <li
+                                    key={index}
+                                    className="py-2 text-gray-600 hover:bg-gray-50 rounded-lg cursor-pointer 
+                                        transition-all text-sm group flex items-center"
+                                >
+                                    {item}
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
+                </div>
+
+                {/* Profile Section */}
+                <div className="mt-auto border-t border-gray-100">
+                    <div className="relative">
+                        <button
+                            onClick={() => setIsProfileOpen(!isProfileOpen)}
+                            className={`w-full py-4 flex items-center text-gray-700 hover:text-gray-900 
+                                hover:bg-gray-50/80 transition-all
+                                ${!isDesktopSidebarOpen ? 'lg:justify-center lg:px-2' : 'px-4'}`}
+                        >
+                            <div className={`flex items-center ${!isDesktopSidebarOpen ? 'lg:justify-center' : 'space-x-3'}`}>
+                                <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0">
+                                    <span className="text-xs text-gray-600">
+                                        {session?.user?.name?.[0] || 'U'}
+                                    </span>
+                                </div>
+                                <span className={`text-sm font-medium ${!isDesktopSidebarOpen ? 'lg:hidden' : ''}`}>
+                                    {session?.user?.email || 'username@email.com'}
+                                </span>
+                            </div>
+                            <ChevronDown className={`h-4 w-4 transform transition-transform duration-300 ml-auto
+                                ${isProfileOpen ? 'rotate-180' : ''} ${!isDesktopSidebarOpen ? 'lg:hidden' : ''}`} />
+                        </button>
+
+                        {isProfileOpen && (
+                            <div className={`absolute bottom-full bg-white border border-gray-100 rounded-lg 
+                                shadow-lg overflow-hidden mx-2
+                                ${!isDesktopSidebarOpen ? 'lg:left-full lg:w-52 lg:bottom-2 lg:rounded-l-none lg:rounded-r-lg' : 'left-0 w-[calc(100%-16px)]'}`}>
+                                <ul className="divide-y divide-gray-50">
+                                    <li
+                                        onClick={closeProfileDropdown}
+                                        className="px-4 py-3 hover:bg-gray-50 cursor-pointer transition-colors flex items-center gap-3 text-sm text-gray-700"
+                                    >
+                                        <CreditCard className="h-4 w-4 text-gray-400" />
+                                        <span>Plan Details</span>
+                                    </li>
+                                    <Link href="/settings">
+                                        <li
+                                            onClick={() => {
+                                                closeProfileDropdown();
+                                            }}
+                                            className="px-4 py-3 hover:bg-gray-50 cursor-pointer transition-colors flex items-center gap-3 text-sm text-gray-700">
+                                            <Settings className="h-4 w-4 text-gray-400" />
+                                            <span>Settings</span>
+                                        </li>
+                                    </Link>
+                                    <li className="px-4 py-3 hover:bg-gray-50 cursor-pointer transition-colors flex items-center gap-3 text-sm text-gray-700">
+                                        <Layout className="h-4 w-4 text-gray-400" />
+                                        <span>View All Plans</span>
+                                    </li>
+                                    {session ? (
+                                        <li
+                                            onClick={() => {
+                                                closeProfileDropdown();
+                                                signOut({ callbackUrl: '/' });
+                                            }}
+                                            className="px-4 py-3 hover:bg-gray-50 cursor-pointer transition-colors flex items-center gap-3 text-sm text-red-600 hover:text-red-700"
+                                        >
+                                            <LogOut className="h-4 w-4 text-red-400" />
+                                            <span>Log Out</span>
+                                        </li>
+                                    ) : (
+                                        <li
+                                            onClick={() => {
+                                                closeProfileDropdown();
+                                                router.push('/login'); // Use Next.js router for navigation
+                                            }}
+                                            className="px-4 py-3 hover:bg-gray-50 cursor-pointer transition-colors flex items-center gap-3 text-sm text-gray-700"
+                                        >
+                                            <LogOut className="h-4 w-4 text-gray-400" />
+                                            <span>Sign In</span>
+                                        </li>
+                                    )}
+                                </ul>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </div>
+        </>
+    );
+}
+</file>
+
+<file path="app/login/page.tsx">
+'use client';
+
+import { useState } from 'react';
+import { signIn } from 'next-auth/react';
+
+export default function Login() {
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
+    const [isLoading, setIsLoading] = useState(false);
+
+    const handleEmailLogin = async (e: React.FormEvent<HTMLFormElement>) => {
+        e.preventDefault();
+        setIsLoading(true);
+        // Add your email/password login logic here
+        setIsLoading(false);
+    };
+
+    const handleGoogleSignIn = () => {
+        signIn('google', { callbackUrl: '/' });
+    };
+
+    return (
+        <div className="bg-[#edf2f7] min-h-screen flex items-center justify-center px-4 sm:px-6 lg:px-8">
+            <div className="w-full max-w-md bg-white p-8 rounded-2xl shadow-xl">
+                {/* Logo and Title */}
+                <div className="text-center mb-8">
+                    <h2 className="text-3xl font-bold text-gray-900 mb-3">Welcome to Merukaji</h2>
+                    <p className="text-base text-gray-600">Access your AI-powered video summaries</p>
+                </div>
+
+                <form onSubmit={handleEmailLogin} className="space-y-6">
+                    <div>
+                        <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
+                            Work email
+                        </label>
+                        <input
+                            id="email"
+                            name="email"
+                            type="email"
+                            required
+                            value={email}
+                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
+                            className="block w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 text-base focus:outline-none focus:ring-2 focus:ring-[#FFAB5B] focus:border-transparent transition-all duration-200"
+                            placeholder="name@email.com"
+                        />
+                    </div>
+
+                    <div>
+                        <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
+                            Password
+                        </label>
+                        <input
+                            id="password"
+                            name="password"
+                            type="password"
+                            required
+                            value={password}
+                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
+                            className="block w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 text-base focus:outline-none focus:ring-2 focus:ring-[#FFAB5B] focus:border-transparent transition-all duration-200"
+                            placeholder="Enter your password"
+                        />
+                    </div>
+
+                    <button
+                        type="submit"
+                        disabled={isLoading}
+                        className="w-full flex justify-center items-center py-3 px-6 rounded-xl text-base font-semibold text-white bg-[#e99947] hover:bg-[#FF9B3B] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#e99947] disabled:opacity-50 transition-all duration-200"
+                    >
+                        {isLoading ? 'Signing in...' : 'Continue with Email →'}
+                    </button>
+                </form>
+
+                <div className="relative my-6">
+                    <div className="absolute inset-0 flex items-center">
+                        <div className="w-full border-t border-gray-200"></div>
+                    </div>
+                    <div className="relative flex justify-center text-sm">
+                        <span className="px-4 bg-white text-gray-500">or</span>
+                    </div>
+                </div>
+
+                <button
+                    onClick={handleGoogleSignIn}
+                    className="w-full flex items-center justify-center gap-3 px-6 py-3 bg-white border-2 border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 transition-all duration-200 text-base font-semibold"
+                >
+                    <div className="w-5 h-5 flex items-center justify-center">
+                        <svg viewBox="0 0 24 24" width="20" height="20">
+                            <path
+                                fill="#4285F4"
+                                d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                            />
+                            <path
+                                fill="#34A853"
+                                d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                            />
+                            <path
+                                fill="#FBBC05"
+                                d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
+                            />
+                            <path
+                                fill="#EA4335"
+                                d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+                            />
+                        </svg>
+                    </div>
+                    Continue with Google
+                </button>
+
+                <p className="mt-8 text-center text-sm text-gray-500">
+                    By continuing, you agree to our{' '}
+                    <a href="/terms" className="text-[#FFAB5B] hover:text-[#FF9B3B] font-medium">
+                        Terms of Service
+                    </a>{' '}
+                    and{' '}
+                    <a href="/privacy" className="text-[#FFAB5B] hover:text-[#FF9B3B] font-medium">
+                        Privacy Policy
+                    </a>
+                </p>
+            </div>
+        </div>
+    );
+}
+</file>
+
+<file path="app/client-layout.tsx">
+'use client';
+
+import { useState } from "react";
+import SideNav from "./components/SideNav";
+import { usePathname } from 'next/navigation';
+
+export default function ClientLayout({
+    children,
+}: Readonly<{
+    children: React.ReactNode;
+}>) {
+    const [isDesktopSidebarOpen, setIsDesktopSidebarOpen] = useState(true);
+    const pathname = usePathname();
+
+    // Don't show sidebar on login page
+    if (pathname === '/login') {
+        return <>{children}</>;
+    }
+
+    return (
+        <div className="flex min-h-screen">
+            <SideNav
+                isDesktopSidebarOpen={isDesktopSidebarOpen}
+                onDesktopSidebarChange={setIsDesktopSidebarOpen}
+            />
+            <main className={`flex-1 transition-all duration-300 ease-in-out
+                ${isDesktopSidebarOpen ? 'lg:ml-64' : 'lg:ml-16'}`}>
+                {children}
+            </main>
+        </div>
+    );
+}
+</file>
+
+<file path="app/globals.css">
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+@keyframes fadeIn {
+  from { 
+    opacity: 0; 
+    transform: translateY(10px); 
+  }
+  to { 
+    opacity: 1; 
+    transform: translateY(0); 
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.6s ease-out;
+}
+</file>
+
+<file path="app/layout.tsx">
+import type { Metadata } from "next";
+import { Geist, Geist_Mono } from "next/font/google";
+import { Providers } from "./providers";
+import "./globals.css";
+
+const geistSans = Geist({
+  variable: "--font-geist-sans",
+  subsets: ["latin"],
+});
+
+const geistMono = Geist_Mono({
+  variable: "--font-geist-mono",
+  subsets: ["latin"],
+});
+
+export const metadata: Metadata = {
+  title: "Merukaji",
+  description: "AI-powered video summarization platform",
+};
+
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
+  return (
+    <html lang="en">
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+        <Providers>
+          {children}
+        </Providers>
+      </body>
+    </html>
+  );
+}
+</file>
+
+<file path="app/page.tsx">
+import { redirect } from 'next/navigation';
+
+export default function Page() {
+  // Redirect to the authenticated version of the homepage
+  redirect('/home');
+}
+</file>
+
+<file path="app/providers.tsx">
+'use client';
+
+import { SessionProvider } from "next-auth/react";
+
+export function Providers({ children }: { children: React.ReactNode }) {
+    return <SessionProvider>{children}</SessionProvider>;
+}
+</file>
+
+<file path="lib/logger.ts">
+// lib/logger.ts
+
+type LogLevel = 'DEBUG' | 'INFO' | 'WARN' | 'ERROR';
+
+interface LogData {
+    [key: string]: any;
+}
+
+const LOG_LEVELS: Record<LogLevel, number> = {
+    'DEBUG': 0,
+    'INFO': 1,
+    'WARN': 2,
+    'ERROR': 3
+};
+
+// Default to INFO in production, DEBUG in development
+const CURRENT_LOG_LEVEL = process.env.NODE_ENV === 'production' ? 'INFO' : 'DEBUG';
+
+/**
+ * Simple logger function that outputs structured logs
+ */
+export function log(level: LogLevel, message: string, data: LogData = {}) {
+    // Skip logging if level is below current log level
+    if (LOG_LEVELS[level] < LOG_LEVELS[CURRENT_LOG_LEVEL as LogLevel]) {
+        return;
+    }
+
+    const timestamp = new Date().toISOString();
+    const logEntry = {
+        timestamp,
+        level,
+        message,
+        ...data,
+    };
+
+    // Format based on log level
+    switch (level) {
+        case 'ERROR':
+            console.error(JSON.stringify(logEntry));
+            break;
+        case 'WARN':
+            console.warn(JSON.stringify(logEntry));
+            break;
+        case 'INFO':
+            console.info(JSON.stringify(logEntry));
+            break;
+        case 'DEBUG':
+            console.debug(JSON.stringify(logEntry));
+            break;
+    }
+}
+
+// Convenience methods
+export const logger = {
+    debug: (message: string, data?: LogData) => log('DEBUG', message, data),
+    info: (message: string, data?: LogData) => log('INFO', message, data),
+    warn: (message: string, data?: LogData) => log('WARN', message, data),
+    error: (message: string, data?: LogData) => log('ERROR', message, data),
+};
+</file>
+
+<file path="lib/mongodb.ts">
+import { MongoClient } from "mongodb";
+
+if (!process.env.MONGODB_URI) {
+    throw new Error('Invalid/Missing environment variable: "MONGODB_URI"');
+}
+
+const uri = process.env.MONGODB_URI;
+const options = {};
+
+let client;
+let clientPromise: Promise<MongoClient>;
+
+if (process.env.NODE_ENV === "development") {
+    // In development mode, use a global variable so that the value
+    // is preserved across module reloads caused by HMR (Hot Module Replacement).
+    const globalWithMongo = global as typeof globalThis & {
+        _mongoClientPromise?: Promise<MongoClient>;
+    };
+
+    if (!globalWithMongo._mongoClientPromise) {
+        client = new MongoClient(uri, options);
+        globalWithMongo._mongoClientPromise = client.connect();
+    }
+    clientPromise = globalWithMongo._mongoClientPromise;
+} else {
+    // In production mode, it's best to not use a global variable.
+    client = new MongoClient(uri, options);
+    clientPromise = client.connect();
+}
+
+export default clientPromise;
+</file>
+
+<file path="lib/youtube.ts">
+import axios from 'axios';
+import { YoutubeTranscript } from 'youtube-transcript';
+import clientPromise from './mongodb';
+import {
+    VideoMetadata,
+    TranscriptSegment,
+    CachedTranscript,
+    ProcessedVideo
+} from '@/types/youtube';
+import { logger } from './logger';
+
+// Cache settings
+//const CACHE_TTL = 1000 * 60 * 60 * 24 * 7; // 7 days
+const MAX_RETRY_ATTEMPTS = 3;
+const RETRY_DELAY = 1000; // 1 second
+
+// YouTube API key
+const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY;
+
+/**
+ * Main class for handling YouTube operations
+ */
+export class YouTubeProcessor {
+    private requestsThisMinute = 0;
+    private requestsResetTime = Date.now() + 60000;
+    private readonly MAX_REQUESTS_PER_MINUTE = 60; // Adjust based on your rate limits
+
+    constructor() {
+        // Reset request counter every minute
+        setInterval(() => {
+            this.requestsThisMinute = 0;
+            this.requestsResetTime = Date.now() + 60000;
+        }, 60000);
+    }
+
+    /**
+     * Main function to extract and process a YouTube video
+     */
+    async processVideo(url: string): Promise<{
+        metadata: VideoMetadata;
+        transcript: TranscriptSegment[];
+    }> {
+        // 1. Extract video ID
+        const videoId = this.extractVideoId(url);
+        if (!videoId) {
+            throw new Error('Invalid YouTube URL');
+        }
+
+        // 2. Check cache
+        const cachedData = await this.getCachedTranscript(videoId);
+        let transcript: TranscriptSegment[] = [];
+
+        if (cachedData) {
+            transcript = cachedData;
+        } else {
+            // 3. Get transcript
+            transcript = await this.getTranscript(videoId);
+
+            // 4. Cache the result
+            await this.cacheTranscript(videoId, transcript);
+        }
+
+        // 5. Get metadata
+        const metadata = await this.getVideoMetadata(videoId);
+
+        return {
+            metadata,
+            transcript
+        };
+    }
+
+    /**
+     * Extract YouTube video ID from various URL formats
+     */
+    extractVideoId(url: string): string | null {
+        if (!url) return null;
+
+        // Handle different YouTube URL formats
+        // Standard: https://www.youtube.com/watch?v=VIDEO_ID
+        // Short: https://youtu.be/VIDEO_ID
+        // Embedded: https://www.youtube.com/embed/VIDEO_ID
+        // Shorts: https://www.youtube.com/shorts/VIDEO_ID
+
+        let videoId: string | null = null;
+
+        // Regular expressions for different URL formats
+        const patterns = [
+            /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/shorts\/)([^&?/]+)/i,
+            /^([^&?/]+)$/i // Direct video ID input
+        ];
+
+        for (const pattern of patterns) {
+            const match = url.match(pattern);
+            if (match && match[1]) {
+                videoId = match[1];
+                break;
+            }
+        }
+
+        return videoId;
+    }
+
+    /**
+     * Get video transcript using youtube-transcript package
+     */
+    async getTranscript(videoId: string, retryCount = 0): Promise<TranscriptSegment[]> {
+        try {
+            if (this.shouldThrottle()) {
+                await this.delay(this.getBackoffTime());
+            }
+
+            this.requestsThisMinute++;
+
+            const transcriptData = await YoutubeTranscript.fetchTranscript(videoId);
+
+            return transcriptData.map(segment => ({
+                text: segment.text,
+                offset: segment.offset,
+                duration: segment.duration
+            }));
+        } catch (error) {
+            if (retryCount < MAX_RETRY_ATTEMPTS) {
+                // Exponential backoff
+                const delayTime = RETRY_DELAY * Math.pow(2, retryCount);
+                await this.delay(delayTime);
+                return this.getTranscript(videoId, retryCount + 1);
+            }
+
+            console.error(`Failed to get transcript for video ${videoId}:`, error);
+            throw new Error(`Could not retrieve transcript: ${error instanceof Error ? error.message : String(error)}`);
+        }
+    }
+
+    /**
+     * Get video metadata from YouTube API
+     */
+    async getVideoMetadata(videoId: string, retryCount = 0): Promise<VideoMetadata> {
+        if (!YOUTUBE_API_KEY) {
+            throw new Error('YouTube API key is not configured');
+        }
+
+        try {
+            if (this.shouldThrottle()) {
+                await this.delay(this.getBackoffTime());
+            }
+
+            this.requestsThisMinute++;
+
+            const response = await axios.get(
+                `https://www.googleapis.com/youtube/v3/videos?id=${videoId}&part=snippet,contentDetails&key=${YOUTUBE_API_KEY}`
+            );
+
+            const videoData = response.data.items[0];
+
+            if (!videoData) {
+                throw new Error('Video not found');
+            }
+
+            return {
+                videoId,
+                title: videoData.snippet.title,
+                thumbnailUrl: videoData.snippet.thumbnails.high.url,
+                channelTitle: videoData.snippet.channelTitle,
+                publishedAt: videoData.snippet.publishedAt,
+                duration: videoData.contentDetails.duration
+            };
+        } catch (error) {
+            if (retryCount < MAX_RETRY_ATTEMPTS) {
+                // Exponential backoff
+                const delayTime = RETRY_DELAY * Math.pow(2, retryCount);
+                await this.delay(delayTime);
+                return this.getVideoMetadata(videoId, retryCount + 1);
+            }
+
+            console.error(`Failed to get metadata for video ${videoId}:`, error);
+
+            // Fallback: Return basic metadata without API
+            return {
+                videoId,
+                title: 'Unknown Title',
+                thumbnailUrl: `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`
+            };
+        }
+    }
+
+    /**
+     * Check if we should throttle requests based on rate limits
+     */
+    private shouldThrottle(): boolean {
+        return this.requestsThisMinute >= this.MAX_REQUESTS_PER_MINUTE;
+    }
+
+    /**
+     * Calculate backoff time when rate limit is hit
+     */
+    private getBackoffTime(): number {
+        const timeUntilReset = this.requestsResetTime - Date.now();
+        return Math.max(timeUntilReset, 1000); // At least 1 second
+    }
+
+    /**
+     * Helper method for delays
+     */
+    private delay(ms: number): Promise<void> {
+        return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    /**
+     * Get cached transcript from MongoDB
+     */
+    private async getCachedTranscript(videoId: string): Promise<TranscriptSegment[] | null> {
+        try {
+            logger.debug('Checking cache for transcript', { videoId });
+
+            const client = await clientPromise;
+            const db = client.db();
+
+            const cachedTranscript = await db.collection<CachedTranscript>('cachedTranscripts')
+                .findOne({
+                    videoId,
+                    expiresAt: { $gt: new Date() } // Only return if not expired
+                });
+
+            if (cachedTranscript) {
+                logger.info('Cache hit for transcript', {
+                    videoId,
+                    cacheAge: `${Math.round((Date.now() - cachedTranscript.createdAt.getTime()) / (1000 * 60))}min`
+                });
+                return cachedTranscript.transcript;
+            } else {
+                logger.info('Cache miss for transcript', { videoId });
+                return null;
+            }
+        } catch (error) {
+            logger.error('Error retrieving cached transcript', {
+                videoId,
+                error: error instanceof Error ? error.message : String(error)
+            });
+            return null; // Continue without cache on error
+        }
+    }
+
+    /**
+     * Cache transcript in MongoDB
+     */
+    private async cacheTranscript(videoId: string, transcript: TranscriptSegment[], ttlDays: number = 30): Promise<void> {
+        try {
+            logger.debug('Caching transcript', { videoId, ttlDays });
+
+            const client = await clientPromise;
+            const db = client.db();
+
+            const now = new Date();
+            const expiresAt = new Date(now.getTime() + (ttlDays * 24 * 60 * 60 * 1000)); // Convert days to milliseconds
+
+            await db.collection<CachedTranscript>('cachedTranscripts').updateOne(
+                { videoId },
+                {
+                    $set: {
+                        videoId,
+                        transcript,
+                        createdAt: now,
+                        expiresAt
+                    }
+                },
+                { upsert: true } // Create if doesn't exist
+            );
+
+            logger.info('Transcript cached successfully', {
+                videoId,
+                segmentsCount: transcript.length,
+                expiryDate: expiresAt.toISOString()
+            });
+        } catch (error) {
+            logger.error('Error caching transcript', {
+                videoId,
+                error: error instanceof Error ? error.message : String(error)
+            });
+            // Continue without caching on error
+        }
+    }
+}
+
+// Export instance for easy use
+export const youtubeProcessor = new YouTubeProcessor();
+
+// Export standalone functions for flexibility
+export const extractVideoId = (url: string): string | null => {
+    return new YouTubeProcessor().extractVideoId(url);
+};
+
+export const getVideoTranscript = async (videoIdOrUrl: string): Promise<TranscriptSegment[]> => {
+    const processor = new YouTubeProcessor();
+    const videoId = processor.extractVideoId(videoIdOrUrl) || videoIdOrUrl;
+    return processor.getTranscript(videoId);
+};
+
+export const getVideoMetadata = async (videoIdOrUrl: string): Promise<VideoMetadata> => {
+    const processor = new YouTubeProcessor();
+    const videoId = processor.extractVideoId(videoIdOrUrl) || videoIdOrUrl;
+    return processor.getVideoMetadata(videoId);
+};
+
+export const processYoutubeVideo = async (url: string) => {
+    return youtubeProcessor.processVideo(url);
+};
+
+export async function testYouTubeProcessor(url: string): Promise<{
+    success: boolean;
+    data?: ProcessedVideo;
+    error?: string;
+}> {
+    try {
+        const processor = new YouTubeProcessor();
+        const result = await processor.processVideo(url);
+
+        // Validate the result
+        if (!result.metadata || !result.metadata.videoId) {
+            return {
+                success: false,
+                error: 'Failed to extract video metadata'
+            };
+        }
+
+        if (!result.transcript || result.transcript.length === 0) {
+            return {
+                success: false,
+                error: 'Failed to extract transcript'
+            };
+        }
+
+        return {
+            success: true,
+            data: result
+        };
+    } catch (error) {
+        return {
+            success: false,
+            error: error instanceof Error ? error.message : 'Unknown error occurred'
+        };
+    }
+}
+
+/**
+ * Get cached transcript from MongoDB
+ */
+export async function getCachedTranscript(videoId: string): Promise<TranscriptSegment[] | null> {
+    try {
+        const client = await clientPromise;
+        const db = client.db();
+
+        const cachedTranscript = await db.collection<CachedTranscript>('cachedTranscripts')
+            .findOne({
+                videoId,
+                expiresAt: { $gt: new Date() } // Only return if not expired
+            });
+
+        return cachedTranscript ? cachedTranscript.transcript : null;
+    } catch (error) {
+        console.error('Error retrieving cached transcript:', error);
+        return null; // Continue without cache on error
+    }
+}
+
+/**
+ * Cache transcript in MongoDB
+ */
+export async function cacheTranscript(
+    videoId: string,
+    transcript: TranscriptSegment[],
+    ttlDays: number = 30 // Default TTL of 30 days
+): Promise<void> {
+    try {
+        const client = await clientPromise;
+        const db = client.db();
+
+        const now = new Date();
+        const expiresAt = new Date(now.getTime() + (ttlDays * 24 * 60 * 60 * 1000)); // Convert days to milliseconds
+
+        await db.collection<CachedTranscript>('cachedTranscripts').updateOne(
+            { videoId },
+            {
+                $set: {
+                    videoId,
+                    transcript,
+                    createdAt: now,
+                    expiresAt
+                }
+            },
+            { upsert: true } // Create if doesn't exist
+        );
+
+        console.log(`Cached transcript for video ${videoId} until ${expiresAt.toISOString()}`);
+    } catch (error) {
+        console.error('Error caching transcript:', error);
+        // Continue without caching on error
+    }
+}
+</file>
+
+<file path="public/file.svg">
+<svg fill="none" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg"><path d="M14.5 13.5V5.41a1 1 0 0 0-.3-.7L9.8.29A1 1 0 0 0 9.08 0H1.5v13.5A2.5 2.5 0 0 0 4 16h8a2.5 2.5 0 0 0 2.5-2.5m-1.5 0v-7H8v-5H3v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1M9.5 5V2.12L12.38 5zM5.13 5h-.62v1.25h2.12V5zm-.62 3h7.12v1.25H4.5zm.62 3h-.62v1.25h7.12V11z" clip-rule="evenodd" fill="#666" fill-rule="evenodd"/></svg>
+</file>
+
+<file path="public/globe.svg">
+<svg fill="none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><g clip-path="url(#a)"><path fill-rule="evenodd" clip-rule="evenodd" d="M10.27 14.1a6.5 6.5 0 0 0 3.67-3.45q-1.24.21-2.7.34-.31 1.83-.97 3.1M8 16A8 8 0 1 0 8 0a8 8 0 0 0 0 16m.48-1.52a7 7 0 0 1-.96 0H7.5a4 4 0 0 1-.84-1.32q-.38-.89-.63-2.08a40 40 0 0 0 3.92 0q-.25 1.2-.63 2.08a4 4 0 0 1-.84 1.31zm2.94-4.76q1.66-.15 2.95-.43a7 7 0 0 0 0-2.58q-1.3-.27-2.95-.43a18 18 0 0 1 0 3.44m-1.27-3.54a17 17 0 0 1 0 3.64 39 39 0 0 1-4.3 0 17 17 0 0 1 0-3.64 39 39 0 0 1 4.3 0m1.1-1.17q1.45.13 2.69.34a6.5 6.5 0 0 0-3.67-3.44q.65 1.26.98 3.1M8.48 1.5l.01.02q.41.37.84 1.31.38.89.63 2.08a40 40 0 0 0-3.92 0q.25-1.2.63-2.08a4 4 0 0 1 .85-1.32 7 7 0 0 1 .96 0m-2.75.4a6.5 6.5 0 0 0-3.67 3.44 29 29 0 0 1 2.7-.34q.31-1.83.97-3.1M4.58 6.28q-1.66.16-2.95.43a7 7 0 0 0 0 2.58q1.3.27 2.95.43a18 18 0 0 1 0-3.44m.17 4.71q-1.45-.12-2.69-.34a6.5 6.5 0 0 0 3.67 3.44q-.65-1.27-.98-3.1" fill="#666"/></g><defs><clipPath id="a"><path fill="#fff" d="M0 0h16v16H0z"/></clipPath></defs></svg>
+</file>
+
+<file path="public/logo.svg">
+<?xml version="1.0" encoding="UTF-8"?>
+<svg version="1.1" xmlns="http://www.w3.org/2000/svg" width="1024" height="1024">
+<path d="M0 0 C337.92 0 675.84 0 1024 0 C1024 337.92 1024 675.84 1024 1024 C686.08 1024 348.16 1024 0 1024 C0 686.08 0 348.16 0 0 Z " fill="#FEFBEC" transform="translate(0,0)"/>
+<path d="M0 0 C1.78482777 -0.00514518 3.56965046 -0.01243095 5.35446167 -0.02168274 C10.17662584 -0.0401234 14.99823381 -0.02730685 19.82037449 -0.00759244 C24.87575949 0.00884595 29.93111071 -0.00002557 34.98651123 -0.00511169 C43.46993861 -0.0096252 51.95314494 0.00619518 60.43652344 0.03417969 C70.23992235 0.06626951 80.04292362 0.06619741 89.84635091 0.04896492 C99.28959333 0.03309837 108.73269016 0.03983156 118.17592621 0.05690193 C122.19017164 0.06376844 126.20430023 0.06274421 130.21854401 0.05535698 C134.94325745 0.04769201 139.6675184 0.05982716 144.39215469 0.08720589 C146.12474092 0.094087 147.85736944 0.09419061 149.58995438 0.08699036 C151.95689643 0.07828765 154.32244439 0.09426343 156.68927002 0.11643982 C157.37312436 0.10819905 158.05697871 0.09995829 158.76155591 0.0914678 C165.19937144 0.20263961 169.27305946 3.3854966 173.65527344 7.80297852 C174.52043579 8.67007446 174.52043579 8.67007446 175.40307617 9.5546875 C175.99290283 10.15740479 176.58272949 10.76012207 177.19042969 11.38110352 C178.11674194 12.31708374 178.11674194 12.31708374 179.06176758 13.27197266 C182.76440043 17.03723759 186.33478366 20.87810406 189.74902344 24.90844727 C191.85052195 27.31561829 194.13137024 29.52125779 196.41113281 31.75805664 C198.18740761 33.56446971 199.84783853 35.42518114 201.49902344 37.34594727 C205.16696472 41.56403131 208.96954219 45.63802699 212.81542969 49.69360352 C214.23105447 51.19205566 215.64641414 52.6907583 217.06152344 54.18969727 C217.76519043 54.93461426 218.46885742 55.67953125 219.19384766 56.44702148 C222.83951542 60.31400557 226.46455388 64.20017532 230.08520508 68.09057617 C233.05314603 71.27885203 236.03078724 74.45704215 239.02636719 77.61938477 C239.6501123 78.2805127 240.27385742 78.94164062 240.91650391 79.62280273 C242.09455082 80.87101251 243.27560807 82.11639198 244.46044922 83.3581543 C257.49506655 97.20184367 257.49506655 97.20184367 257.51019859 106.89638329 C257.51664749 107.94355691 257.52309638 108.99073054 257.52974069 110.0696367 C257.52664349 111.2136912 257.52354628 112.35774569 257.52035522 113.53646851 C257.52488634 114.75678383 257.52941745 115.97709914 257.53408587 117.23439372 C257.54455845 120.61872367 257.54605533 124.00284115 257.54369712 127.38717222 C257.54328898 131.03825624 257.55432779 134.68930856 257.56381226 138.34037781 C257.58042341 145.49223869 257.58592184 152.6440666 257.58703701 159.79594515 C257.58798737 165.60908158 257.59209706 171.42220713 257.59843826 177.23534012 C257.6160505 193.71626625 257.62527709 210.19716633 257.62377732 226.67810194 C257.62365745 228.01077034 257.62365745 228.01077034 257.62353516 229.37036133 C257.62345339 230.25989146 257.62337163 231.1494216 257.62328739 232.0659072 C257.62247436 246.4844925 257.6416165 260.90297338 257.66981189 275.32152848 C257.6985336 290.12602049 257.7123526 304.93046155 257.71062434 319.73498213 C257.70996022 328.04677911 257.71546212 336.3584666 257.73698044 344.67023849 C257.75518281 351.74651677 257.75954735 358.8226359 257.74596159 365.89892744 C257.73942727 369.50896583 257.73933111 373.11869884 257.75666809 376.72870827 C257.77527397 380.64320436 257.76285639 384.5572535 257.74740601 388.47177124 C257.75769313 389.61136429 257.76798026 390.75095734 257.77857912 391.92508352 C257.71035811 399.73093638 256.44864902 404.05093674 251.17480469 409.95922852 C250.45808594 410.59344727 249.74136719 411.22766602 249.00292969 411.88110352 C248.29652344 412.52563477 247.59011719 413.17016602 246.86230469 413.83422852 C239.88204383 418.64099498 233.32665789 419.06842463 225.10794067 419.0255127 C223.45443236 419.03464935 223.45443236 419.03464935 221.76751983 419.04397058 C218.08432821 419.06058147 214.40148302 419.05582734 210.71826172 419.05102539 C208.07323017 419.0583668 205.42822432 419.06686083 202.78320312 419.07669067 C196.35063062 419.09770693 189.91814832 419.10228773 183.48554553 419.10050279 C178.25507095 419.0991933 173.02462442 419.10300884 167.79415512 419.11042786 C166.28544581 419.11252713 164.7767365 419.11462473 163.26802719 419.11672068 C162.14151132 419.11828597 162.14151132 419.11828597 160.99223755 419.11988288 C146.8005024 419.13876974 132.60881897 419.13773977 118.41707645 419.13091356 C105.44594087 419.12533864 92.47500284 419.14616403 79.50391342 419.17927402 C66.17170856 419.21304058 52.83959825 419.22817571 39.50734985 419.223557 C32.02769594 419.22131537 24.54822462 419.2265104 17.06860733 419.25144958 C10.70097932 419.27250107 4.33363403 419.27601679 -2.03400575 419.25714999 C-5.2799957 419.24801564 -8.52535187 419.24950797 -11.77132034 419.26750565 C-15.29739679 419.28570483 -18.82207922 419.27294163 -22.34811401 419.25256348 C-23.36408468 419.26508132 -24.38005535 419.27759917 -25.42681301 419.29049635 C-33.18323407 419.19466403 -39.83960451 417.20660249 -45.66543376 411.87571859 C-52.95641018 404.10250338 -53.19096558 396.31021088 -53.17944336 386.07666016 C-53.18846995 384.70617799 -53.19879937 383.33570389 -53.21032715 381.96524048 C-53.2378182 378.2612061 -53.24717084 374.55732525 -53.25318122 370.8532021 C-53.26258555 366.97608351 -53.28879056 363.09907866 -53.31318665 359.22203064 C-53.35679884 351.88763957 -53.38537817 344.55327065 -53.40851003 337.21878952 C-53.43559008 328.86563704 -53.47949981 320.5125993 -53.52479875 312.15952885 C-53.61756936 294.98344621 -53.68928474 277.80733876 -53.74707031 260.63110352 C-54.40707031 260.30110352 -55.06707031 259.97110352 -55.74707031 259.63110352 C-56.01261719 260.35765137 -56.27816406 261.08419922 -56.55175781 261.83276367 C-57.75002074 264.63801075 -59.13731546 266.90074513 -60.87207031 269.40454102 C-61.49726563 270.31333008 -62.12246094 271.22211914 -62.76660156 272.15844727 C-63.42015625 273.09817383 -64.07371094 274.03790039 -64.74707031 275.00610352 C-72.17191816 285.75138022 -79.42143372 296.60493835 -86.63040161 307.49560547 C-88.34268482 310.08155701 -90.05701011 312.66615101 -91.77172852 315.25048828 C-92.64044224 316.56121672 -93.50792822 317.87275959 -94.37426758 319.18505859 C-95.65799417 321.12891919 -96.94623896 323.06971815 -98.23535156 325.01000977 C-98.61565018 325.58819962 -98.99594879 326.16638947 -99.38777161 326.76210022 C-106.14854866 336.90534861 -114.48168051 344.15345382 -126.74707031 346.63110352 C-136.62880268 347.8239803 -145.2713251 345.38319517 -153.37207031 339.63110352 C-163.42743002 331.00935586 -170.38061226 318.37552637 -177.62695312 307.42388916 C-179.33670793 304.84009291 -181.05108348 302.25941607 -182.76660156 299.67944336 C-187.4335788 292.65788397 -192.0905497 285.62975466 -196.73387146 278.5925293 C-197.88139352 276.85417961 -199.03058799 275.1169494 -200.18041992 273.38012695 C-201.52532345 271.34712216 -202.86619997 269.3114457 -204.20239258 267.27270508 C-204.78432373 266.39324219 -205.36625488 265.5137793 -205.96582031 264.60766602 C-206.46017578 263.85565918 -206.95453125 263.10365234 -207.46386719 262.32885742 C-208.65453941 260.49241648 -208.65453941 260.49241648 -210.74707031 259.63110352 C-210.74246135 260.34856184 -210.73785238 261.06602016 -210.73310375 261.80521965 C-210.62250722 279.29186292 -210.53985691 296.77841693 -210.48800945 314.26533318 C-210.46226759 322.72202011 -210.4271944 331.17847305 -210.36987305 339.63500977 C-210.31991446 347.00886547 -210.28775011 354.38255164 -210.27662784 361.75657189 C-210.27013001 365.65832079 -210.25494346 369.55958487 -210.21842003 373.46117783 C-210.18426284 377.14010527 -210.17405647 380.81835221 -210.18153191 384.49742317 C-210.17951907 386.47799018 -210.15272769 388.45848453 -210.12496948 390.43885803 C-210.17306285 398.83638353 -211.48394565 405.75802595 -217.15452099 412.23992729 C-225.13155156 419.4620974 -233.61480559 419.09239842 -243.80566406 419.06469727 C-245.27865335 419.06926511 -246.75164052 419.07457247 -248.22462463 419.08058167 C-251.30356534 419.08948837 -254.38224634 419.08711779 -257.46118164 419.07714844 C-261.3896465 419.06566229 -265.31721195 419.0858762 -269.24555874 419.11506557 C-272.28523875 419.1334896 -275.32470568 419.13312288 -278.36442757 419.12742805 C-279.8119845 419.12727559 -281.25955657 419.13325737 -282.70705986 419.14571953 C-292.46918029 419.21793621 -298.78828411 418.68829223 -306.49707031 412.38110352 C-312.89193324 404.56515994 -313.32536346 398.111871 -313.25500488 388.29525757 C-313.25961865 386.94381274 -313.26597477 385.59237294 -313.27391386 384.24094355 C-313.29056484 380.54214969 -313.28238042 376.84377026 -313.26996899 373.14497519 C-313.26090353 369.15038889 -313.2748955 365.15587291 -313.28588867 361.16130066 C-313.30366159 353.34238119 -313.29983969 345.52361543 -313.28823811 337.70468996 C-313.27920051 331.35051398 -313.27798119 324.99638104 -313.28233337 318.64220047 C-313.28294631 317.7374736 -313.28355924 316.83274673 -313.28419074 315.9006039 C-313.28546965 314.06263154 -313.28676651 312.2246592 -313.28808111 310.38668688 C-313.29948297 293.15867691 -313.2863787 275.93075212 -313.26487964 258.70275612 C-313.24700296 243.91971471 -313.25011823 229.13679892 -313.26855469 214.35375977 C-313.28995791 197.18383485 -313.29839075 180.01398453 -313.28610563 162.84404814 C-313.28483144 161.01349045 -313.28357396 159.18293275 -313.28233337 157.35237503 C-313.28171627 156.45171515 -313.28109917 155.55105526 -313.28046337 154.62310266 C-313.27700927 148.27539307 -313.28283996 141.92773079 -313.29225159 135.58002853 C-313.30346659 127.84612017 -313.30044182 120.11237421 -313.27912861 112.37848447 C-313.26861235 108.4323754 -313.2645061 104.48653717 -313.27772522 100.54043007 C-313.28964292 96.92822003 -313.2830975 93.31653194 -313.26181501 89.70436926 C-313.2552291 87.77854667 -313.26829055 85.85268787 -313.28204393 83.92690313 C-313.22401784 77.55140748 -313.15175802 73.4177133 -308.74707031 68.63110352 C-304.30201616 64.90671613 -301.20882219 64.12580741 -295.46337891 64.09765625 C-294.76001404 64.08904068 -294.05664917 64.08042511 -293.33197021 64.07154846 C-291.01943534 64.04895225 -288.70811976 64.05561941 -286.39550781 64.06469727 C-284.77372889 64.05945564 -283.15195301 64.05317719 -281.53018188 64.0459137 C-278.13244277 64.03551876 -274.7351226 64.04005283 -271.33740234 64.0546875 C-267.01343214 64.0717995 -262.69080032 64.04847084 -258.3669796 64.0131979 C-255.01571074 63.99107048 -251.6647539 63.99270331 -248.3134346 64.00096321 C-246.72125413 64.00177582 -245.1290491 63.99504633 -243.53693771 63.98019218 C-231.18703356 63.88269461 -219.86451599 65.51874252 -210.57910156 74.48266602 C-207.19029757 78.45674319 -204.64438425 82.88314452 -202.04345703 87.39819336 C-199.33123598 92.06975151 -196.52853 96.68807082 -193.74707031 101.31860352 C-193.10294189 102.39440674 -192.45881348 103.47020996 -191.79516602 104.57861328 C-186.55540895 113.32095383 -181.22782516 122.00680489 -175.87451172 130.67993164 C-169.13735695 141.60152296 -162.48240855 152.57218768 -155.83125305 163.54624939 C-151.69430667 170.37057621 -147.5415578 177.1852817 -143.38720703 183.99902344 C-139.81542063 189.86147163 -136.27168546 195.74017522 -132.74707031 201.63110352 C-128.39982583 200.18202202 -127.20094174 196.84879378 -124.99707031 193.06860352 C-124.01152705 191.41670433 -123.02446735 189.7657092 -122.03613281 188.11547852 C-121.50665039 187.22795898 -120.97716797 186.34043945 -120.43164062 185.42602539 C-117.47365521 180.51834177 -114.41895201 175.67140676 -111.37207031 170.81860352 C-106.57758509 163.16636953 -101.80363379 155.50219614 -97.05957031 147.81860352 C-92.57984482 140.56519881 -88.04688881 133.34803697 -83.47900391 126.14990234 C-79.14936449 119.30816859 -74.91628426 112.40870214 -70.68457031 105.50610352 C-60.8921124 89.57889064 -60.8921124 89.57889064 -56.68457031 82.94360352 C-56.28036865 82.29182129 -55.87616699 81.64003906 -55.4597168 80.96850586 C-51.48613432 74.7695535 -46.46677614 68.89496063 -39.74707031 65.63110352 C-39.08707031 65.63110352 -38.42707031 65.63110352 -37.74707031 65.63110352 C-37.76278076 64.34010742 -37.77849121 63.04911133 -37.79467773 61.71899414 C-37.84921072 56.90330305 -37.88350521 52.08763898 -37.91186523 47.27172852 C-37.92689874 45.19225465 -37.94733106 43.11281221 -37.97338867 41.03344727 C-38.01001167 38.03467018 -38.02685142 35.0363144 -38.04003906 32.03735352 C-38.05552292 31.11619751 -38.07100677 30.1950415 -38.08695984 29.24597168 C-38.08917486 20.64066278 -36.00709829 13.8676897 -29.87501144 7.59152889 C-21.15468952 -0.44231196 -11.15048856 -0.08190841 0 0 Z " fill="#E99644" transform="translate(539.7470703125,274.368896484375)"/>
+<path d="M0 0 C1.25480164 -0.01416962 2.50960327 -0.02833923 3.8024292 -0.04293823 C5.18525841 -0.03835105 6.56808624 -0.03333172 7.95091248 -0.02792358 C9.41313212 -0.0366218 10.87534265 -0.04698943 12.33753967 -0.05889893 C16.30236471 -0.0856545 20.2668082 -0.08683961 24.2317059 -0.08177233 C27.54206818 -0.07963198 30.8523534 -0.08940155 34.16269916 -0.09898317 C41.9705803 -0.12116336 49.77826899 -0.12205301 57.58616638 -0.10995483 C65.64293534 -0.09786325 73.69900682 -0.1225288 81.75565678 -0.16509497 C88.67385488 -0.20030309 95.59183067 -0.21233391 102.51011509 -0.20581949 C106.64185018 -0.20219073 110.77308727 -0.20749564 114.90474129 -0.23524857 C118.78827955 -0.26036006 122.67072772 -0.25656372 126.55424881 -0.23042679 C127.97968981 -0.22568648 129.40520703 -0.23119673 130.83056068 -0.24767303 C141.7958723 -0.36529406 141.7958723 -0.36529406 145.61715698 3.11645508 C146.88831998 6.87402158 147.2615245 9.77710177 147.25144958 13.74502563 C147.25536209 14.44184952 147.2592746 15.1386734 147.26330566 15.85661316 C147.26925594 17.36087393 147.2661554 18.86519261 147.25488281 20.36942291 C147.23752728 22.75899761 147.24517968 25.1473722 147.25914001 27.53695679 C147.28869991 33.47285431 147.27564864 39.40851871 147.26396179 45.3444519 C147.25571744 50.36215649 147.26386835 55.37933466 147.29309082 60.39696503 C147.30012358 62.7357624 147.28358353 65.07360133 147.26597595 67.412323 C147.26743146 78.26520556 148.58508008 86.97655446 156.49949646 94.95108032 C165.12359538 100.91818491 173.52672055 101.11076836 183.70652771 101.09561157 C185.23828212 101.10807378 186.77002229 101.1224127 188.30174255 101.13853455 C192.30602528 101.1763434 196.31006121 101.19171405 200.3144989 101.20132446 C206.75114036 101.22117137 213.18759612 101.27779845 219.6240387 101.33008766 C221.87152241 101.34545766 224.11891279 101.35262576 226.36643982 101.35823059 C227.73240711 101.36524145 229.09837394 101.37234194 230.46434021 101.37954712 C232.25895691 101.38476631 232.25895691 101.38476631 234.08982849 101.39009094 C236.76902771 101.52139282 236.76902771 101.52139282 237.76902771 102.52139282 C237.87011964 103.95621031 237.90192685 105.39597163 237.9060421 106.8343401 C237.91111664 107.77089776 237.91619118 108.70745542 237.9214195 109.67239362 C237.92191726 110.71341739 237.92241502 111.75444116 237.92292786 112.82701111 C237.92950124 114.47177273 237.92950124 114.47177273 237.93620741 116.14976186 C237.94965138 119.85477656 237.95578677 123.55976746 237.9618988 127.26480103 C237.9697953 129.90867292 237.9780584 132.5525417 237.98667908 135.19641113 C238.01123018 143.15306279 238.02583424 151.10972075 238.03873914 159.06639865 C238.04244912 161.31243296 238.04642251 163.55846665 238.05049181 165.80450034 C238.07572647 179.74166388 238.0977872 193.67882836 238.11021996 207.61600971 C238.11314982 210.84610816 238.11611146 214.07620657 238.11912537 217.30630493 C238.11987142 218.10916556 238.12061747 218.91202619 238.12138613 219.73921593 C238.13404467 232.75040137 238.16727269 245.7614503 238.2089272 258.7725719 C238.25131033 272.12033029 238.2749108 285.46801872 238.28014052 298.81584424 C238.28355879 306.31443416 238.29536252 313.81281078 238.32824326 321.31133461 C238.35619537 327.69648137 238.3672646 334.08137114 238.35604779 340.46657435 C238.35084844 343.72596649 238.3565353 346.98470524 238.37851334 350.24404335 C238.40103171 353.77475914 238.39298931 357.30410331 238.37702942 360.83482361 C238.39091151 361.86915521 238.40479359 362.90348682 238.41909635 363.96916181 C238.34275836 370.78835784 238.34275836 370.78835784 235.70477104 374.1588192 C232.11653024 375.82423804 229.06848875 376.06987118 225.18913269 376.00914001 C224.0567224 376.01532491 224.0567224 376.01532491 222.90143514 376.02163476 C220.3761339 376.03055276 217.85187414 376.01091791 215.3266449 375.99136353 C213.5147438 375.99187237 211.70284247 375.99412837 209.89094543 375.9980011 C204.97382772 376.00342123 200.05708664 375.98400878 195.14003658 375.95990014 C189.99955342 375.93861995 184.85907185 375.93919969 179.71855164 375.93721008 C171.09012864 375.93076263 162.46184743 375.90951213 153.83348083 375.87808228 C142.74363164 375.83774049 131.6538747 375.82038783 120.56396103 375.8107729 C111.04324926 375.80248477 101.52255719 375.78524551 92.00186253 375.76573539 C88.93390292 375.75966021 85.86594256 375.75452178 82.79798126 375.74938393 C77.98814063 375.74062605 73.17834616 375.72634173 68.36853409 375.70767403 C66.59836712 375.70153285 64.82819335 375.69709312 63.05801773 375.6944313 C60.6522967 375.69047285 58.24668153 375.68037763 55.84098816 375.66856384 C55.13137711 375.66874821 54.42176607 375.66893257 53.69065166 375.66912252 C48.88326439 375.63562951 48.88326439 375.63562951 47.76902771 374.52139282 C47.67033579 372.82337641 47.64239639 371.12122144 47.64153576 369.42033958 C47.63852811 368.30797884 47.63552046 367.1956181 47.63242167 366.04954946 C47.63504723 364.1934258 47.63504723 364.1934258 47.63772583 362.29980469 C47.63561012 360.99715247 47.6334944 359.69450025 47.63131458 358.35237372 C47.62670265 355.48033087 47.6252996 352.60830962 47.62627983 349.73626328 C47.62786747 345.06402483 47.62268149 340.39180793 47.61665344 335.71957397 C47.60852748 328.93535748 47.6035921 322.15114475 47.60036278 315.36692429 C47.59487416 304.64492962 47.57798426 293.92296691 47.559021 283.20098877 C47.55266365 279.53513914 47.54635528 275.86928942 47.54004383 272.20343971 C47.53846007 271.28719186 47.53687631 270.37094401 47.53524455 269.42693108 C47.51729476 258.9885313 47.50107543 248.55012926 47.48606873 238.11172485 C47.48469285 237.1571298 47.48331698 236.20253475 47.48189942 235.21901257 C47.45997812 219.75587536 47.44921588 204.29274633 47.44169798 188.82959633 C47.43362823 172.96298996 47.41034077 157.09645386 47.37374431 141.2298876 C47.35170828 131.43885595 47.34205804 121.64796872 47.34824464 111.85691352 C47.35141815 105.14524054 47.34009629 98.43369089 47.31735023 91.72205608 C47.30467608 87.84878427 47.29852002 83.97578718 47.30976677 80.10250473 C47.32180387 75.90305139 47.30303176 71.70429684 47.28128052 67.50488281 C47.28972305 66.28085137 47.29816559 65.05681992 47.30686396 63.79569662 C47.24307334 57.1520795 46.78400344 52.90425291 42.76902771 47.52139282 C37.36260973 42.7561994 30.3193198 42.92033932 23.48777771 42.91201782 C21.90664185 42.88721344 21.90664185 42.88721344 20.29356384 42.86190796 C16.95199139 42.81361862 13.61087343 42.79209878 10.26902771 42.77139282 C7.99296341 42.7432173 5.71692011 42.71328767 3.44090271 42.68154907 C-2.11630697 42.60786494 -7.67338983 42.55611093 -13.23097229 42.52139282 C-13.28055087 37.91325434 -13.31677614 33.30527245 -13.34083557 28.69692993 C-13.35086955 27.13049615 -13.36449983 25.56408099 -13.3818512 23.99771118 C-13.40621454 21.74123529 -13.41748145 19.48500788 -13.42628479 17.22842407 C-13.43660736 16.53239578 -13.44692993 15.83636749 -13.45756531 15.11924744 C-13.45847714 11.13355623 -13.22787626 8.00491419 -11.23097229 4.52139282 C-7.49331948 0.92468039 -5.15582364 0.01943893 0 0 Z " fill="#FEFBED" transform="translate(537.2309722900391,296.4786071777344)"/>
+<path d="M0 0 C1.68238518 -0.01902626 1.68238518 -0.01902626 3.39875793 -0.03843689 C4.61125717 -0.03550125 5.82375641 -0.03256561 7.07299805 -0.02954102 C8.31969772 -0.03478287 9.5663974 -0.04002472 10.85087585 -0.04542542 C13.49156112 -0.05185586 16.13138462 -0.05193123 18.77197266 -0.04199219 C21.47541248 -0.03280511 24.17798904 -0.03970236 26.88134766 -0.0625 C30.77883127 -0.09320009 34.67541277 -0.09658009 38.57299805 -0.09204102 C39.77942459 -0.10327499 40.98585114 -0.11450897 42.22883606 -0.12608337 C48.61218469 -0.0731396 52.71181644 0.02650245 57.5222168 4.40405273 C60.84358969 8.04526154 63.29153875 12.16670658 65.7722168 16.40405273 C66.57506837 17.7572342 67.37846243 19.11009392 68.18237305 20.46264648 C68.57956543 21.13279785 68.97675781 21.80294922 69.38598633 22.4934082 C74.54975078 31.17660989 79.96800533 39.69815755 85.3972168 48.21655273 C94.3512789 62.26834129 103.14325206 76.38606338 111.69799805 90.68554688 C117.75603043 100.81000295 123.88043581 110.89294806 130.03295898 120.96020508 C131.36227191 123.1415858 132.6828134 125.32788616 133.9987793 127.51733398 C139.14646397 137.22428806 139.14646397 137.22428806 147.5222168 143.40405273 C153.87684249 143.8679929 153.87684249 143.8679929 159.5222168 141.40405273 C161.11139265 139.17801615 162.51444127 137.0027124 163.8972168 134.65405273 C164.78397342 133.19234754 165.67206885 131.73145397 166.5612793 130.27124023 C167.27525879 129.09126465 167.27525879 129.09126465 168.00366211 127.88745117 C170.69905318 123.47949008 173.49009505 119.13258667 176.2722168 114.77905273 C177.47288203 112.89503017 178.67340112 111.01091446 179.8737793 109.12670898 C180.47609375 108.1819873 181.0784082 107.23726563 181.69897461 106.26391602 C193.13618222 88.32397895 204.56284229 70.37812787 215.80664062 52.31616211 C219.24745574 46.80646335 222.78626631 41.36319608 226.33349609 35.92163086 C230.25739649 29.87439573 234.0236887 23.73710526 237.73095703 17.55493164 C239.74953516 14.20893777 241.79855587 10.88148298 243.9675293 7.63061523 C244.48984131 6.83905029 244.48984131 6.83905029 245.02270508 6.03149414 C249.02632816 1.68630504 251.98680371 0.1810148 257.85327148 -0.08178711 C259.96685565 -0.09461108 262.08065641 -0.08505101 264.1940918 -0.05688477 C265.31285706 -0.05596832 266.43162231 -0.05505188 267.58428955 -0.05410767 C269.94108339 -0.04808064 272.29786989 -0.03236187 274.65454102 -0.00756836 C278.27347805 0.0290655 281.89139449 0.03344998 285.51049805 0.03295898 C287.80087153 0.04278556 290.09123806 0.05444055 292.3815918 0.06811523 C294.01121857 0.0714537 294.01121857 0.0714537 295.67376709 0.07485962 C296.67530823 0.08761932 297.67684937 0.10037903 298.70874023 0.11352539 C299.5922113 0.12114899 300.47568237 0.12877258 301.38592529 0.1366272 C303.5222168 0.40405273 303.5222168 0.40405273 305.5222168 2.40405273 C306.57234603 5.47229652 306.64921494 8.34483762 306.65364456 11.57028198 C306.65748571 12.62079805 306.66132685 13.67131413 306.6652844 14.75366402 C306.66441791 15.90656866 306.66355143 17.0594733 306.66265869 18.24731445 C306.66711537 20.08580617 306.66711537 20.08580617 306.67166209 21.96143913 C306.67884292 25.36516691 306.68152144 28.76884422 306.68225956 32.17257595 C306.6841107 35.84269717 306.69165818 39.51280746 306.69839478 43.18292236 C306.71197435 51.20749003 306.71800179 59.2320527 306.72240543 67.25662994 C306.72516762 72.26522426 306.72940484 77.27381665 306.73390961 82.28240967 C306.74610012 96.14519123 306.75640095 110.00797125 306.7597847 123.87075806 C306.76000426 124.7578947 306.76022383 125.64503134 306.76045005 126.55905092 C306.76066833 127.44832108 306.76088661 128.33759124 306.7611115 129.25380898 C306.76155497 131.05584335 306.76200153 132.85787773 306.76245117 134.65991211 C306.7626726 135.55378529 306.76289403 136.44765848 306.76312217 137.36861873 C306.7670731 151.86363767 306.78453706 166.35860644 306.80781069 180.85360599 C306.83150316 195.72923718 306.84398553 210.60484317 306.84515262 225.48049355 C306.84607039 233.83522907 306.85184858 242.18989916 306.86997223 250.5446167 C306.88534461 257.65611434 306.89051055 264.76752629 306.88223413 271.87903738 C306.87831786 275.50890292 306.87930456 279.13859577 306.89329147 282.76844025 C306.90830024 286.69929917 306.90019313 290.62991282 306.88970947 294.56079102 C306.90179408 296.29014798 306.90179408 296.29014798 306.91412282 298.05444145 C306.90753298 299.10495752 306.90094313 300.15547359 306.89415359 301.23782349 C306.89475068 302.14546511 306.89534777 303.05310673 306.89596295 303.98825264 C306.44257021 306.91886804 305.56034308 308.27364095 303.5222168 310.40405273 C300.73211487 311.33408671 298.93070405 311.55506267 296.03833008 311.61279297 C295.13374054 311.63208359 294.229151 311.65137421 293.29714966 311.67124939 C289.17055395 311.72906699 285.04412885 311.77823782 280.91723633 311.80908203 C278.74064297 311.83069521 276.56413729 311.86483692 274.38793945 311.91162109 C271.24740862 311.97850674 268.10867115 312.00605928 264.9675293 312.02514648 C263.99655304 312.05297714 263.02557678 312.0808078 262.025177 312.10948181 C261.11428314 312.10670731 260.20338928 312.1039328 259.26489258 312.10107422 C258.46785919 312.11138168 257.67082581 312.12168915 256.84963989 312.13230896 C253.30214247 311.02228857 251.3983238 308.48498241 249.5222168 305.40405273 C248.90253353 301.94669247 248.90253353 301.94669247 248.90989685 298.07249451 C248.90436344 297.35627412 248.89883002 296.64005374 248.89312893 295.90212971 C248.88059545 293.5134241 248.90349568 291.12640281 248.92626953 288.73779297 C248.92436489 287.0209007 248.92020788 285.30400968 248.91397095 283.58712769 C248.90518825 279.89565306 248.91191953 276.20464887 248.93063164 272.5132122 C248.95973476 266.67657771 248.95192821 260.84034812 248.93873596 255.00367737 C248.91807907 243.66980696 248.93367156 232.33613281 248.95420837 221.00227356 C248.97935727 206.57189405 248.99222945 192.14162339 248.96425205 177.71124035 C248.95429246 171.90860266 248.96444067 166.10645001 248.99015987 160.30386531 C249.00232314 156.69588897 248.99813204 153.08806444 248.98958206 149.48008347 C248.98904659 147.80671895 248.99539496 146.13333598 249.00912285 144.46002769 C249.02695376 142.1757879 249.02025321 139.89287174 249.0075531 137.60862732 C249.01036002 136.33051902 249.01316694 135.05241072 249.01605892 133.73557186 C248.43222668 129.79696843 247.35511352 128.15825131 244.5222168 125.40405273 C241.16628817 124.06745129 241.16628817 124.06745129 237.5222168 124.40405273 C231.75716922 128.29024079 228.48540358 133.49413527 224.7722168 139.27905273 C223.53267743 141.17491481 222.29309387 143.070748 221.0534668 144.96655273 C220.15047852 146.35874023 220.15047852 146.35874023 219.22924805 147.77905273 C216.94008219 151.29923455 214.60931514 154.79060016 212.2722168 158.27905273 C211.4684974 159.48325698 210.66510771 160.68768135 209.86206055 161.89233398 C209.4738916 162.47450684 209.08572266 163.05667969 208.68579102 163.65649414 C207.52636317 165.39782535 206.36966584 167.14094153 205.21362305 168.88452148 C199.51625971 177.46831299 193.72657167 185.98685972 187.91455078 194.4934082 C184.71663774 199.17642897 181.53051166 203.8650571 178.3972168 208.59155273 C177.10620499 210.52948915 175.81443873 212.46692303 174.5222168 214.40405273 C173.77560791 215.5286792 173.77560791 215.5286792 173.01391602 216.67602539 C171.29568992 219.25760153 169.5660132 221.83122762 167.8347168 224.40405273 C167.01366455 225.64384888 167.01366455 225.64384888 166.17602539 226.90869141 C159.79351313 236.34637212 159.79351313 236.34637212 154.3112793 238.11889648 C148.90108376 238.67554115 145.27525239 238.39670478 140.5222168 235.40405273 C133.55586938 227.96792927 128.27791857 218.67638136 122.68197632 210.19958496 C119.77813275 205.80226997 116.86189999 201.41320388 113.9440918 197.02514648 C113.37768478 196.17324738 112.81127777 195.32134827 112.22770691 194.44363403 C106.6338302 186.04492883 100.866844 177.77859423 95.03149414 169.54614258 C86.78443057 157.84123547 78.83217642 145.92911082 70.92651367 133.9921875 C70.08443359 132.72266235 70.08443359 132.72266235 69.2253418 131.42749023 C68.72679687 130.67387207 68.22825195 129.92025391 67.71459961 129.14379883 C66.63753017 127.45819688 66.63753017 127.45819688 65.5222168 126.40405273 C60.8843452 125.88873367 56.85387314 125.46214947 52.9597168 128.21655273 C50.30560446 132.25541933 50.40419416 135.58111032 50.42214966 140.3056488 C50.42341193 141.01184437 50.4246742 141.71803994 50.42597473 142.44563538 C50.43136285 144.8177999 50.44388879 147.18987432 50.45629883 149.56201172 C50.4614908 151.2603746 50.46619918 152.95873902 50.47045898 154.65710449 C50.48040758 158.31737598 50.49326001 161.97762198 50.50818253 165.63787651 C50.53121521 171.42345581 50.54454006 177.20903159 50.55587769 182.99464417 C50.58933823 199.447646 50.6309829 215.90059709 50.69360352 232.35351562 C50.72809804 241.43800629 50.75192555 250.52245937 50.76381195 259.60700852 C50.77059168 264.41605707 50.78308339 269.22494625 50.80884171 274.03393364 C50.83306047 278.55567958 50.84348689 283.07724364 50.84324646 287.59905243 C50.84567241 289.25993751 50.85326922 290.92082417 50.86637497 292.58165932 C50.88350373 294.84649567 50.88219604 297.11059692 50.87625122 299.37547302 C50.88031542 300.64365088 50.88437962 301.91182875 50.88856697 303.21843624 C50.49497686 306.64091899 49.96705842 308.02110252 47.5222168 310.40405273 C44.68503181 311.34978106 42.88982842 311.5404725 39.9465332 311.56518555 C39.02192291 311.57479309 38.09731262 311.58440063 37.14468384 311.59429932 C36.14778534 311.59854919 35.15088684 311.60279907 34.1237793 311.60717773 C32.58311295 311.61572784 32.58311295 311.61572784 31.01132202 311.62445068 C28.83755524 311.63389906 26.66377414 311.64043402 24.48999023 311.64428711 C21.16714469 311.65399452 17.8449172 311.68502058 14.5222168 311.71655273 C12.4102413 311.72308274 10.29826139 311.72833322 8.1862793 311.73217773 C7.19342926 311.74452454 6.20057922 311.75687134 5.17764282 311.76959229 C-0.37171066 311.75170218 -4.34581061 311.53602532 -8.4777832 307.40405273 C-8.57757864 305.78575203 -8.6070177 304.16307751 -8.60921097 302.54170418 C-8.61305211 301.48261097 -8.61689326 300.42351776 -8.6208508 299.33233082 C-8.61998432 298.15444174 -8.61911784 296.97655266 -8.6182251 295.76296997 C-8.62268178 293.9027635 -8.62268178 293.9027635 -8.6272285 292.00497711 C-8.63443235 288.54693464 -8.63708964 285.08894182 -8.63782597 281.63089538 C-8.63967162 277.90757037 -8.64721645 274.18425625 -8.65396118 270.4609375 C-8.66756507 262.31229632 -8.6735724 254.16366005 -8.67797184 246.0150094 C-8.68073077 240.93089219 -8.68496747 235.8467769 -8.68947601 230.76266098 C-8.70167131 216.69754976 -8.71197014 202.63244008 -8.7153511 188.56732368 C-8.71557067 187.66645967 -8.71579024 186.76559566 -8.71601646 185.83743273 C-8.71623473 184.93436302 -8.71645301 184.03129331 -8.7166779 183.10085785 C-8.71712138 181.27077047 -8.71756794 179.44068309 -8.71801758 177.6105957 C-8.71823901 176.70280125 -8.71846044 175.79500679 -8.71868858 174.85970341 C-8.72263817 160.1439566 -8.74009592 145.42825927 -8.7633771 130.71253158 C-8.7870642 115.61890782 -8.79955175 100.52530891 -8.80071902 85.43166625 C-8.80163727 76.95116285 -8.80742707 68.47072389 -8.82553864 59.99023819 C-8.84090404 52.76994413 -8.84608125 45.54973443 -8.83780053 38.32942714 C-8.83388133 34.64299989 -8.834885 30.9567427 -8.84885788 27.27033615 C-8.86384551 23.27985062 -8.85576793 19.28960725 -8.84527588 15.29910278 C-8.85333228 14.12567515 -8.86138869 12.95224751 -8.86968923 11.74326146 C-8.86309938 10.67895275 -8.85650954 9.61464405 -8.84972 8.51808357 C-8.85031709 7.59628496 -8.85091418 6.67448635 -8.85152936 5.72475445 C-8.00834567 0.48917466 -4.7518995 0.02599049 0 0 Z " fill="#FEC667" transform="translate(257.477783203125,360.595947265625)"/>
+<path d="M0 0 C10.50578765 6.43211489 17.45919617 16.05496136 21.37890625 27.6953125 C23.29013044 38.91062806 22.09403264 50.8276761 15.984375 60.53125 C14.92995233 61.96956442 13.84717023 63.38760645 12.734375 64.78125 C12.25484375 65.39742187 11.7753125 66.01359375 11.28125 66.6484375 C4.03577556 74.88193118 -7.99499591 79.82541486 -18.69921875 81.0625 C-29.0912616 81.66581163 -38.87803845 78.3038995 -46.765625 71.53125 C-56.38277602 61.97716227 -61.60637123 51.45830126 -61.828125 37.84375 C-61.69654497 25.96096679 -57.9042222 17.50368566 -49.5703125 8.96484375 C-48.80976562 8.24425781 -48.04921875 7.52367187 -47.265625 6.78125 C-46.64945313 6.19472656 -46.03328125 5.60820313 -45.3984375 5.00390625 C-32.80165307 -5.61956216 -14.42407387 -7.75915698 0 0 Z " fill="#E89542" transform="translate(677.265625,546.21875)"/>
+<path d="M0 0 C0.96315125 -0.00571014 1.92630249 -0.01142029 2.91864014 -0.01730347 C3.97892929 -0.01842133 5.03921844 -0.01953918 6.13163757 -0.02069092 C7.24555878 -0.02565582 8.35947998 -0.03062073 9.50715637 -0.03573608 C13.20580149 -0.05038532 16.90440371 -0.05716441 20.60307312 -0.06268311 C23.16656496 -0.0684324 25.73005678 -0.07419016 28.29354858 -0.07995605 C32.98621991 -0.0891284 37.67887401 -0.09542543 42.37155277 -0.09845281 C49.27660079 -0.10293191 56.18145069 -0.12047185 63.08643848 -0.1494534 C69.06758954 -0.17368533 75.04864698 -0.18139767 81.02985191 -0.18312836 C83.57399257 -0.18615929 86.1181323 -0.19420255 88.66224098 -0.20731354 C92.21990142 -0.2243385 95.7770781 -0.22250214 99.33476257 -0.21600342 C100.91608727 -0.22982559 100.91608727 -0.22982559 102.52935791 -0.243927 C108.84907243 -0.20770318 112.49810955 0.41327215 117.23979187 4.82794189 C118.98770879 8.2317801 119.08880092 11.44334133 118.42729187 15.14044189 C116.02714046 19.22958874 113.84551777 20.67247538 109.42729187 22.14044189 C107.06125641 22.39491749 107.06125641 22.39491749 104.56974792 22.40113831 C103.14407753 22.41176552 103.14407753 22.41176552 101.68960571 22.42260742 C100.65880386 22.42013 99.62800201 22.41765259 98.56596375 22.4151001 C97.4711116 22.42021103 96.37625946 22.42532196 95.24822998 22.43058777 C91.63077828 22.44448297 88.01351708 22.44352721 84.39604187 22.44122314 C81.88167754 22.44510969 79.36731387 22.44944428 76.85295105 22.45420837 C71.58393228 22.46167013 66.31496283 22.46151762 61.04594421 22.45611572 C54.96046637 22.45007265 48.87521953 22.46239806 42.78978109 22.48368579 C36.92768405 22.50343601 31.06567747 22.5064745 25.20355225 22.50295067 C22.71244768 22.5034645 20.22133947 22.50871386 17.73025513 22.51876259 C14.24952821 22.5310816 10.76933814 22.52436242 7.28862 22.51275635 C6.25781815 22.52040009 5.2270163 22.52804382 4.16497803 22.53591919 C-2.49992582 22.4867321 -6.05972464 21.65342538 -10.88520813 16.82794189 C-12.99857272 13.46221311 -13.35419216 12.04786207 -12.57270813 8.14044189 C-9.08444906 2.96122797 -6.37724737 0.02259127 0 0 Z " fill="#E99744" transform="translate(628.5727081298828,484.85955810546875)"/>
+<path d="M0 0 C1.10299942 -0.00686325 2.20599884 -0.0137265 3.34242249 -0.02079773 C6.98760866 -0.03909536 10.63236566 -0.03522383 14.27758789 -0.02954102 C16.81197754 -0.03410136 19.34636596 -0.03940649 21.88075256 -0.04542542 C27.19269413 -0.05436237 32.50447937 -0.0521605 37.81640625 -0.04199219 C43.94851814 -0.03051292 50.08019258 -0.04458522 56.21224684 -0.07138866 C62.12133311 -0.09624631 68.03028383 -0.09871873 73.93942451 -0.0922718 C76.44924205 -0.09211839 78.95906792 -0.0981792 81.4688549 -0.11056328 C84.97826557 -0.1254397 88.48671323 -0.1148195 91.99609375 -0.09765625 C93.03265106 -0.10732422 94.06920837 -0.11699219 95.13717651 -0.12695312 C101.08904727 -0.06599777 104.5491579 0.40462774 109.06274414 4.40405273 C111.52680862 8.10014945 111.74139221 11.11432664 111.06274414 15.40405273 C108.66259273 19.49319958 106.48097004 20.93608622 102.06274414 22.40405273 C99.69670868 22.65852833 99.69670868 22.65852833 97.2052002 22.66474915 C95.7795298 22.67537636 95.7795298 22.67537636 94.32505798 22.68621826 C93.29425613 22.68374084 92.26345428 22.68126343 91.20141602 22.67871094 C90.10656387 22.68382187 89.01171173 22.6889328 87.88368225 22.69419861 C84.26623055 22.70809381 80.64896935 22.70713805 77.03149414 22.70483398 C74.51712981 22.70872053 72.00276614 22.71305512 69.48840332 22.71781921 C64.21938455 22.72528097 58.9504151 22.72512846 53.68139648 22.71972656 C47.59591864 22.71368349 41.5106718 22.72600889 35.42523336 22.74729663 C29.56313632 22.76704685 23.70112974 22.77008534 17.83900452 22.76656151 C15.34789995 22.76707534 12.85679175 22.7723247 10.3657074 22.78237343 C6.88498048 22.79469244 3.40479041 22.78797326 -0.07592773 22.77636719 C-1.10672958 22.78401093 -2.13753143 22.79165466 -3.1995697 22.79953003 C-8.27127956 22.76210073 -11.82089856 22.71936013 -15.93725586 19.40405273 C-16.51475586 18.99155273 -17.09225586 18.57905273 -17.68725586 18.15405273 C-19.74515537 15.27299342 -19.87796479 12.90222571 -19.93725586 9.40405273 C-15.36715096 0.26384293 -9.28987182 -0.0402662 0 0 Z " fill="#E99744" transform="translate(634.937255859375,427.595947265625)"/>
+<path d="M0 0 C7.76462948 3.63746566 13.40343382 11.198331 18.91015625 17.625 C21.76986845 20.87491592 24.72819153 24.02836173 27.6875 27.1875 C28.294729 27.83589844 28.90195801 28.48429687 29.52758789 29.15234375 C30.13723389 29.80332031 30.74687988 30.45429688 31.375 31.125 C36.12852599 36.20079893 40.84457078 41.310817 45.55322266 46.42822266 C47.02772694 48.03012252 48.50409187 49.63029479 49.98046875 51.23046875 C64 66.44633333 64 66.44633333 64 68 C56.09843395 68.06948567 48.19699537 68.12280364 40.29519939 68.15543652 C36.62613324 68.17109805 32.95727599 68.19234475 29.28833008 68.22631836 C25.74811053 68.25889514 22.20809201 68.27684934 18.66773415 68.28463173 C16.65852345 68.29287924 14.64939372 68.31630137 12.64030457 68.33988953 C10.80874565 68.34022942 10.80874565 68.34022942 8.94018555 68.34057617 C7.32469063 68.35056892 7.32469063 68.35056892 5.67655945 68.36076355 C3 68 3 68 1.15002441 66.8729248 C-0.54377271 64.11441411 -0.35927209 61.91455697 -0.34057617 58.69262695 C-0.34034958 57.39150467 -0.34012299 56.09038239 -0.33988953 54.74983215 C-0.32456952 53.3293117 -0.30892153 51.90879474 -0.29296875 50.48828125 C-0.28737276 49.03525734 -0.28310267 47.58222776 -0.28010559 46.12919617 C-0.26865695 42.30679671 -0.23918999 38.4847398 -0.20599365 34.66247559 C-0.17529295 30.76135899 -0.16160028 26.86018698 -0.14648438 22.95898438 C-0.11431998 15.3058335 -0.06312383 7.65296477 0 0 Z " fill="#FEFBED" transform="translate(706,308)"/>
+<path d="M0 0 C5.91381348 2.69752896 9.95661417 7.31700785 12.3125 13.375 C13.59188204 20.1208326 13.73889472 25.05647089 10.41015625 31.10546875 C7.25855049 35.33962054 2.97717746 38.34094085 -2 40 C-8.30840001 40.68175595 -14.22644417 41.23105544 -19.5625 37.375 C-25.20864555 32.32443942 -27.76198496 27.62972941 -28.25 20.1875 C-28.13235642 13.14195691 -24.83530545 7.94775441 -20 3 C-13.5181406 -0.90395251 -7.3741463 -0.78037934 0 0 Z " fill="#FEFAEC" transform="translate(665,564)"/>
+<path d="M0 0 C0.96315125 -0.00571014 1.92630249 -0.01142029 2.91864014 -0.01730347 C3.97892929 -0.01842133 5.03921844 -0.01953918 6.13163757 -0.02069092 C7.24555878 -0.02565582 8.35947998 -0.03062073 9.50715637 -0.03573608 C13.20580149 -0.05038532 16.90440371 -0.05716441 20.60307312 -0.06268311 C23.16656496 -0.0684324 25.73005678 -0.07419016 28.29354858 -0.07995605 C32.98621991 -0.0891284 37.67887401 -0.09542543 42.37155277 -0.09845281 C49.27660079 -0.10293191 56.18145069 -0.12047185 63.08643848 -0.1494534 C69.06758954 -0.17368533 75.04864698 -0.18139767 81.02985191 -0.18312836 C83.57399257 -0.18615929 86.1181323 -0.19420255 88.66224098 -0.20731354 C92.21990142 -0.2243385 95.7770781 -0.22250214 99.33476257 -0.21600342 C100.91608727 -0.22982559 100.91608727 -0.22982559 102.52935791 -0.243927 C109.00759614 -0.20679454 112.71492359 0.42807362 117.42729187 5.14044189 C117.09729187 6.13044189 116.76729187 7.12044189 116.42729187 8.14044189 C115.53678886 6.92334282 115.53678886 6.92334282 114.6282959 5.68165588 C111.28636743 2.37742311 107.96714332 2.52523409 103.44367981 2.45487976 C101.84361588 2.46781822 101.84361588 2.46781822 100.21122742 2.48101807 C99.0790831 2.47053436 97.94693878 2.46005066 96.78048706 2.44924927 C93.0413839 2.42046673 89.30320487 2.4267951 85.56401062 2.43341064 C82.9703963 2.42029767 80.37679219 2.4049947 77.78320312 2.3875885 C71.65633294 2.35175756 65.52977812 2.33800137 59.40281564 2.3349641 C52.42570028 2.33027175 45.44880704 2.29734293 38.47178972 2.26206625 C24.12365832 2.19015162 9.7755914 2.15361817 -4.57270813 2.14044189 C-4.84083313 2.77981689 -5.10895813 3.41919189 -5.38520813 4.07794189 C-6.57270813 6.14044189 -6.57270813 6.14044189 -9.57270813 7.14044189 C-9.57270813 8.39856689 -9.57270813 9.65669189 -9.57270813 10.95294189 C-9.57270813 13.34877523 -9.57270813 15.74460856 -9.57270813 18.14044189 C-11.65649239 15.88300894 -12.52783885 14.36478828 -13.13520813 11.32794189 C-12.33828888 6.81206617 -9.86084526 4.23265376 -6.57270813 1.14044189 C-4.17363838 -0.05909298 -2.67927599 0.00949128 0 0 Z " fill="#E88B2E" transform="translate(628.5727081298828,484.85955810546875)"/>
+<path d="M0 0 C0.99 0.33 1.98 0.66 3 1 C3.33 1.99 3.66 2.98 4 4 C4.78375 3.484375 5.5675 2.96875 6.375 2.4375 C7.674375 1.7259375 7.674375 1.7259375 9 1 C9.66 1.33 10.32 1.66 11 2 C0.23282443 9 0.23282443 9 -5 9 C-5 8.34 -5 7.68 -5 7 C-6.32 6.67 -7.64 6.34 -9 6 C-7.824375 5.87625 -7.824375 5.87625 -6.625 5.75 C-3.85955198 5.28474077 -3.85955198 5.28474077 -2.8125 3 C-2.544375 2.34 -2.27625 1.68 -2 1 C-1.34 0.67 -0.68 0.34 0 0 Z " fill="#E8903A" transform="translate(419,611)"/>
+<path d="M0 0 C10.23 0 20.46 0 31 0 C28.10994746 2.89005254 24.91634605 2.84696339 21 3 C19.07072068 2.77860729 17.14049202 2.55502358 15.22265625 2.25 C11.59131119 1.84155346 7.96697596 2.03318329 4.3203125 2.16015625 C2 2 2 2 0 0 Z " fill="#FED171" transform="translate(254,361)"/>
+<path d="M0 0 C-0.25 1.875 -0.25 1.875 -1 4 C-3.0625 5.25 -3.0625 5.25 -5 6 C-5 7.258125 -5 8.51625 -5 9.8125 C-5 12.20833333 -5 14.60416667 -5 17 C-7.08378426 14.74256705 -7.95513072 13.22434639 -8.5625 10.1875 C-7.83886815 6.0869195 -4.73788475 0 0 0 Z " fill="#E78E35" transform="translate(624,486)"/>
+<path d="M0 0 C0.89589844 0.36480469 1.79179687 0.72960937 2.71484375 1.10546875 C3.61332031 1.46253906 4.51179688 1.81960938 5.4375 2.1875 C7.65234375 3.29296875 7.65234375 3.29296875 8.65234375 5.29296875 C5.16563541 4.18356155 1.87750138 3.02959209 -1.34765625 1.29296875 C-1.34765625 2.61296875 -1.34765625 3.93296875 -1.34765625 5.29296875 C-2.66765625 5.62296875 -3.98765625 5.95296875 -5.34765625 6.29296875 C-4.97265625 3.35546875 -4.97265625 3.35546875 -4.34765625 0.29296875 C-2.34765625 -0.70703125 -2.34765625 -0.70703125 0 0 Z " fill="#E78C32" transform="translate(315.34765625,340.70703125)"/>
+<path d="M0 0 C2 3 2 3 3.4375 6.125 C4.73429769 9.2906178 4.73429769 9.2906178 8 10 C8.33 12.31 8.66 14.62 9 17 C4.78458709 13.2529663 1.90736716 9.35980829 0 4 C0 2.68 0 1.36 0 0 Z " fill="#E68524" transform="translate(618,596)"/>
+<path d="M0 0 C0.33 0 0.66 0 1 0 C1.51778074 7.69479711 0.7505733 13.21882953 -3 20 C-3.99 19.67 -4.98 19.34 -6 19 C-4.99088542 17.2421875 -3.98177083 15.484375 -2.97265625 13.7265625 C-1.23462314 10.64137923 -0.75488087 8.41152967 -0.4375 4.875 C-0.35371094 3.96492187 -0.26992188 3.05484375 -0.18359375 2.1171875 C-0.12300781 1.41851563 -0.06242188 0.71984375 0 0 Z " fill="#E68321" transform="translate(678,579)"/>
+<path d="M0 0 C0.66 0 1.32 0 2 0 C3.4631783 1.97440927 4.80713064 3.93238871 6.125 6 C6.49753906 6.57234375 6.87007813 7.1446875 7.25390625 7.734375 C8.17550408 9.15221782 9.08855821 10.57560725 10 12 C9.01 12 8.02 12 7 12 C5.17578125 9.8828125 5.17578125 9.8828125 3.3125 7.125 C2.37857422 5.76761719 2.37857422 5.76761719 1.42578125 4.3828125 C0 2 0 2 0 0 Z " fill="#FCF2E3" transform="translate(347,560)"/>
+<path d="M0 0 C4 5 4 5 8 10 C4.9054129 9.6684371 3.97195314 8.97117406 1.75 6.6875 C0 4 0 4 0 0 Z " fill="#FCEEDC" transform="translate(686,382)"/>
+<path d="M0 0 C3.82946843 1.45255699 5.12050295 3.42895561 7 7 C4.20171644 6.61402985 3.1794116 6.19863427 1.25 4.0625 C0 2 0 2 0 0 Z " fill="#FBF2E4" transform="translate(763,369)"/>
+<path d="M0 0 C0.66 0.99 1.32 1.98 2 3 C-0.97 5.475 -0.97 5.475 -4 8 C-4.66 7.34 -5.32 6.68 -6 6 C-2.25 3 -2.25 3 0 3 C0 2.01 0 1.02 0 0 Z " fill="#FBEDDC" transform="translate(672,594)"/>
+</svg>
+</file>
+
+<file path="public/next.svg">
+<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 394 80"><path fill="#000" d="M262 0h68.5v12.7h-27.2v66.6h-13.6V12.7H262V0ZM149 0v12.7H94v20.4h44.3v12.6H94v21h55v12.6H80.5V0h68.7zm34.3 0h-17.8l63.8 79.4h17.9l-32-39.7 32-39.6h-17.9l-23 28.6-23-28.6zm18.3 56.7-9-11-27.1 33.7h17.8l18.3-22.7z"/><path fill="#000" d="M81 79.3 17 0H0v79.3h13.6V17l50.2 62.3H81Zm252.6-.4c-1 0-1.8-.4-2.5-1s-1.1-1.6-1.1-2.6.3-1.8 1-2.5 1.6-1 2.6-1 1.8.3 2.5 1a3.4 3.4 0 0 1 .6 4.3 3.7 3.7 0 0 1-3 1.8zm23.2-33.5h6v23.3c0 2.1-.4 4-1.3 5.5a9.1 9.1 0 0 1-3.8 3.5c-1.6.8-3.5 1.3-5.7 1.3-2 0-3.7-.4-5.3-1s-2.8-1.8-3.7-3.2c-.9-1.3-1.4-3-1.4-5h6c.1.8.3 1.6.7 2.2s1 1.2 1.6 1.5c.7.4 1.5.5 2.4.5 1 0 1.8-.2 2.4-.6a4 4 0 0 0 1.6-1.8c.3-.8.5-1.8.5-3V45.5zm30.9 9.1a4.4 4.4 0 0 0-2-3.3 7.5 7.5 0 0 0-4.3-1.1c-1.3 0-2.4.2-3.3.5-.9.4-1.6 1-2 1.6a3.5 3.5 0 0 0-.3 4c.3.5.7.9 1.3 1.2l1.8 1 2 .5 3.2.8c1.3.3 2.5.7 3.7 1.2a13 13 0 0 1 3.2 1.8 8.1 8.1 0 0 1 3 6.5c0 2-.5 3.7-1.5 5.1a10 10 0 0 1-4.4 3.5c-1.8.8-4.1 1.2-6.8 1.2-2.6 0-4.9-.4-6.8-1.2-2-.8-3.4-2-4.5-3.5a10 10 0 0 1-1.7-5.6h6a5 5 0 0 0 3.5 4.6c1 .4 2.2.6 3.4.6 1.3 0 2.5-.2 3.5-.6 1-.4 1.8-1 2.4-1.7a4 4 0 0 0 .8-2.4c0-.9-.2-1.6-.7-2.2a11 11 0 0 0-2.1-1.4l-3.2-1-3.8-1c-2.8-.7-5-1.7-6.6-3.2a7.2 7.2 0 0 1-2.4-5.7 8 8 0 0 1 1.7-5 10 10 0 0 1 4.3-3.5c2-.8 4-1.2 6.4-1.2 2.3 0 4.4.4 6.2 1.2 1.8.8 3.2 2 4.3 3.4 1 1.4 1.5 3 1.5 5h-5.8z"/></svg>
+</file>
+
+<file path="public/vercel.svg">
+<svg fill="none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1155 1000"><path d="m577.3 0 577.4 1000H0z" fill="#fff"/></svg>
+</file>
+
+<file path="public/window.svg">
+<svg fill="none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path fill-rule="evenodd" clip-rule="evenodd" d="M1.5 2.5h13v10a1 1 0 0 1-1 1h-11a1 1 0 0 1-1-1zM0 1h16v11.5a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 0 12.5zm3.75 4.5a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5M7 4.75a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0m1.75.75a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5" fill="#666"/></svg>
+</file>
+
+<file path="types/next-auth.d.ts">
+import { DefaultSession } from "next-auth"
+
+declare module "next-auth" {
+    interface Session {
+        user: {
+            id: string;
+            tier: string;
+        } & DefaultSession["user"]
+    }
+
+    interface User {
+        tier?: string;
+    }
+}
+</file>
+
+<file path="types/sidenav-types.ts">
+export interface SideNavProps {
+    isDesktopSidebarOpen: boolean;
+    onDesktopSidebarChange: (isOpen: boolean) => void;
+}
+</file>
+
+<file path="types/youtube.ts">
+export interface VideoMetadata {
+    videoId: string;
+    title: string;
+    thumbnailUrl: string;
+    channelTitle?: string;
+    publishedAt?: string;
+    duration?: string;
+}
+
+export interface TranscriptSegment {
+    text: string;
+    offset: number;
+    duration: number;
+}
+
+export interface TranscriptResult {
+    videoId: string;
+    transcript: TranscriptSegment[];
+    language?: string;
+}
+
+export interface CachedTranscript extends TranscriptResult {
+    createdAt: Date;
+    expiresAt: Date;
+}
+
+export interface ProcessedVideo {
+    metadata: VideoMetadata;
+    transcript: TranscriptSegment[];
+}
+</file>
+
+<file path=".gitignore">
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# dependencies
+/node_modules
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# testing
+/coverage
+
+# next.js
+/.next/
+/out/
+
+# production
+/build
+
+# misc
+.DS_Store
+*.pem
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# env files (can opt-in for committing if needed)
+.env*
+
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+</file>
+
+<file path="eslint.config.mjs">
+import { dirname } from "path";
+import { fileURLToPath } from "url";
+import { FlatCompat } from "@eslint/eslintrc";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+const compat = new FlatCompat({
+  baseDirectory: __dirname,
+});
+
+const eslintConfig = [
+  ...compat.extends("next/core-web-vitals", "next/typescript"),
+];
+
+export default eslintConfig;
+</file>
+
+<file path="next.config.ts">
+import type { NextConfig } from "next";
+
+const nextConfig: NextConfig = {
+  /* config options here */
+};
+
+export default nextConfig;
+</file>
+
+<file path="package.json">
+{
+  "name": "merukaji",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "@auth/mongodb-adapter": "^3.8.0",
+    "@deemlol/next-icons": "^0.1.9",
+    "@headlessui/react": "^2.2.1",
+    "@types/react-leaflet": "^2.8.3",
+    "axios": "^1.8.4",
+    "bcryptjs": "^3.0.2",
+    "lucide-react": "^0.488.0",
+    "mongodb": "^6.15.0",
+    "next": "15.3.0",
+    "next-auth": "^4.24.11",
+    "openai": "^4.93.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "stripe": "^18.0.0",
+    "youtube-transcript": "^1.2.1"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "^3",
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "15.3.0",
+    "tailwindcss": "^4",
+    "typescript": "^5"
+  }
+}
+</file>
+
+<file path="postcss.config.mjs">
+const config = {
+  plugins: ["@tailwindcss/postcss"],
+};
+
+export default config;
+</file>
+
+<file path="README.md">
+This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+
+## Getting Started
+
+First, run the development server:
+
+```bash
+npm run dev
+# or
+yarn dev
+# or
+pnpm dev
+# or
+bun dev
+```
+
+Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+
+You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+
+This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+
+## Learn More
+
+To learn more about Next.js, take a look at the following resources:
+
+- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
+- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+
+You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+
+## Deploy on Vercel
+
+The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+
+Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+</file>
+
+<file path="tsconfig.json">
+{
+  "compilerOptions": {
+    "target": "ES2017",
+    "lib": [
+      "dom",
+      "dom.iterable",
+      "esnext"
+    ],
+    "typeRoots": [
+      "./types",
+      "./node_modules/@types"
+    ],
+    "allowJs": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "preserve",
+    "incremental": true,
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
+    "paths": {
+      "@/*": [
+        "./*"
+      ]
+    }
+  },
+  "include": [
+    "**/*.ts",
+    "**/*.tsx",
+    "./types/**/*.ts",
+    "next-env.d.ts",
+    ".next/types/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules"
+  ]
+}
+</file>
+
+</files>
