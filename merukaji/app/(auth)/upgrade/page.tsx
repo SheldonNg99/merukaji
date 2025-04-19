@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import { CheckCircle2, Info, ArrowRight } from 'lucide-react';
 import { useSession } from 'next-auth/react';
-import SideNav from '@/app/components/SideNav';
 import Link from 'next/link';
 
 export default function UpgradePage() {
