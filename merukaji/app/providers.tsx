@@ -1,14 +1,20 @@
+// app/providers.tsx
 'use client';
 
 import { SessionProvider } from "next-auth/react";
 import { ThemeProvider } from "./components/ThemeProvider";
+import { ThemeScript } from "./components/ThemeScript";
 
 export function Providers({ children }: { children: React.ReactNode }) {
     return (
-        <SessionProvider>
-            <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
-                {children}
-            </ThemeProvider>
-        </SessionProvider>
+        <>
+            {/* Add the ThemeScript before any React hydration */}
+            <ThemeScript />
+            <SessionProvider>
+                <ThemeProvider>
+                    {children}
+                </ThemeProvider>
+            </SessionProvider>
+        </>
     );
 }

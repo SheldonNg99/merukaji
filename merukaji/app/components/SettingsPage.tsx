@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { CreditCard, User, Check, Moon, Sun } from 'lucide-react';
 import { ThemeToggle } from './ThemeToggle';
 
@@ -8,15 +8,23 @@ export default function SettingsPage() {
     const [activeTab, setActiveTab] = useState('profile');
     const [username, setUsername] = useState('');
 
+    useEffect(() => {
+        console.log('Theme in localStorage:', {
+            'merukaji-theme': localStorage.getItem('merukaji-theme'),
+            'theme': localStorage.getItem('theme'),
+        });
+        console.log('Dark class on HTML:', document.documentElement.classList.contains('dark'));
+    }, []);
+
     const handleSaveChanges = () => {
         // This will be connected to the backend later
         console.log('Saving changes:', { username });
     };
 
     return (
-        <div className="w-full min-h-screen bg-gray-50">
+        <div className="w-full min-h-screen bg-gray-50 dark:bg-gray-800 ">
             <div className="max-w-5xl mx-auto py-16">
-                <h1 className="text-xl font-medium mb-6 text-gray-900">Settings</h1>
+                <h1 className="text-2xl font-medium mb-6 text-gray-900 dark:text-white">Settings</h1>
                 <div className="flex flex-col lg:flex-row gap-8">
                     {/* Settings tabs */}
                     <div className="w-full lg:w-64">
@@ -61,13 +69,13 @@ export default function SettingsPage() {
                     {/* Main content area */}
                     <div className="flex-1">
                         {activeTab === 'profile' && (
-                            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                                <h2 className="text-lg font-medium text-gray-900 mb-6">Your Profile</h2>
+                            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+                                <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-6">Your Profile</h2>
 
                                 <div className="space-y-6">
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                         <div>
-                                            <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-1">
+                                            <label htmlFor="username" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                                                 Username
                                             </label>
                                             <input
@@ -75,33 +83,33 @@ export default function SettingsPage() {
                                                 id="username"
                                                 value={username}
                                                 onChange={(e) => setUsername(e.target.value)}
-                                                className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-transparent transition-all"
+                                                className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-400 dark:focus:ring-orange-500 focus:border-transparent transition-all text-gray-900 dark:text-white"
                                                 placeholder="Enter your username"
                                             />
                                         </div>
 
                                         <div>
-                                            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+                                            <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                                                 Email
                                             </label>
                                             <input
                                                 type="email"
                                                 id="email"
-                                                className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-transparent transition-all"
+                                                className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-400 dark:focus:ring-orange-500 focus:border-transparent transition-all text-gray-500 dark:text-gray-400"
                                                 value="user@example.com"
                                                 disabled
                                             />
-                                            <p className="mt-1 text-xs text-gray-500">Your email cannot be changed</p>
+                                            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Your email cannot be changed</p>
                                         </div>
                                     </div>
 
                                     <div>
-                                        <label htmlFor="bio" className="block text-sm font-medium text-gray-700 mb-1">
+                                        <label htmlFor="bio" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                                             Bio
                                         </label>
                                         <textarea
                                             id="bio"
-                                            className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-transparent transition-all"
+                                            className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-400 dark:focus:ring-orange-500 focus:border-transparent transition-all text-gray-900 dark:text-white"
                                             rows={3}
                                             placeholder="Tell us about yourself"
                                         />
@@ -149,30 +157,30 @@ export default function SettingsPage() {
                         {activeTab === 'billing' && (
                             <div className="space-y-6">
                                 {/* Current Plan Card */}
-                                <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
                                     <div className="p-6">
-                                        <h2 className="text-lg font-medium text-gray-900 mb-4">Current Plan</h2>
+                                        <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Current Plan</h2>
 
                                         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                                             <div>
                                                 <div className="flex items-center gap-2 mb-2">
-                                                    <span className="inline-block px-2.5 py-1 bg-gray-100 text-gray-700 text-xs font-medium rounded-full">Free Plan</span>
-                                                    <span className="text-gray-500 text-sm">0 / 3 summaries used today</span>
+                                                    <span className="inline-block px-2.5 py-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-xs font-medium rounded-full">Free Plan</span>
+                                                    <span className="text-gray-500 dark:text-gray-400 text-sm">0 / 3 summaries used today</span>
                                                 </div>
-                                                <p className="text-gray-600 mb-3">
+                                                <p className="text-gray-600 dark:text-gray-300 mb-3">
                                                     Basic functionality with limited features.
                                                 </p>
-                                                <ul className="space-y-2 text-sm text-gray-600">
+                                                <ul className="space-y-2 text-sm text-gray-600 dark:text-gray-300">
                                                     <li className="flex items-center">
-                                                        <Check className="h-4 w-4 text-green-500 mr-2" />
+                                                        <Check className="h-4 w-4 text-green-500 dark:text-green-400 mr-2" />
                                                         <span>3 free summaries per day</span>
                                                     </li>
                                                     <li className="flex items-center">
-                                                        <Check className="h-4 w-4 text-green-500 mr-2" />
+                                                        <Check className="h-4 w-4 text-green-500 dark:text-green-400 mr-2" />
                                                         <span>Basic summary length</span>
                                                     </li>
                                                     <li className="flex items-center">
-                                                        <Check className="h-4 w-4 text-green-500 mr-2" />
+                                                        <Check className="h-4 w-4 text-green-500 dark:text-green-400 mr-2" />
                                                         <span>Standard quality model</span>
                                                     </li>
                                                 </ul>
@@ -186,14 +194,14 @@ export default function SettingsPage() {
                                         </div>
                                     </div>
 
-                                    <div className="bg-orange-50 px-6 py-4 border-t border-orange-100">
+                                    <div className="bg-orange-50 dark:bg-orange-900/20 px-6 py-4 border-t border-orange-100 dark:border-orange-800/30">
                                         <div className="flex items-start gap-3">
-                                            <div className="flex-shrink-0 bg-orange-100 p-2 rounded-lg">
-                                                <CreditCard className="h-5 w-5 text-orange-500" />
+                                            <div className="flex-shrink-0 bg-orange-100 dark:bg-orange-800/40 p-2 rounded-lg">
+                                                <CreditCard className="h-5 w-5 text-orange-500 dark:text-orange-400" />
                                             </div>
                                             <div>
-                                                <h3 className="text-sm font-medium text-gray-900">Premium Plan Benefits</h3>
-                                                <p className="text-sm text-gray-600 mt-1">
+                                                <h3 className="text-sm font-medium text-gray-900 dark:text-white">Premium Plan Benefits</h3>
+                                                <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">
                                                     Upgrade to Premium for unlimited summaries, longer detailed summaries, and higher quality AI models.
                                                 </p>
                                             </div>
@@ -202,13 +210,13 @@ export default function SettingsPage() {
                                 </div>
 
                                 {/* Payment Information Card */}
-                                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                                    <h2 className="text-lg font-medium text-gray-900 mb-4">Payment Information</h2>
+                                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+                                    <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Payment Information</h2>
 
-                                    <div className="flex items-center justify-center h-32 bg-gray-50 rounded-lg border border-dashed border-gray-300">
+                                    <div className="flex items-center justify-center h-32 bg-gray-50 dark:bg-gray-700 rounded-lg border border-dashed border-gray-300 dark:border-gray-600">
                                         <div className="text-center">
-                                            <p className="text-gray-600 mb-1">No payment method on file</p>
-                                            <p className="text-sm text-gray-500">
+                                            <p className="text-gray-600 dark:text-gray-300 mb-1">No payment method on file</p>
+                                            <p className="text-sm text-gray-500 dark:text-gray-400">
                                                 Payment methods will be added when you upgrade to a paid plan
                                             </p>
                                         </div>
@@ -216,15 +224,15 @@ export default function SettingsPage() {
                                 </div>
 
                                 {/* Subscription Management Card */}
-                                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                                    <h2 className="text-lg font-medium text-gray-900 mb-4">Subscription Management</h2>
+                                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+                                    <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Subscription Management</h2>
 
-                                    <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
-                                        <p className="text-gray-600 mb-4">Your subscription renews automatically at the end of each billing period.</p>
+                                    <div className="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
+                                        <p className="text-gray-600 dark:text-gray-300 mb-4">Your subscription renews automatically at the end of each billing period.</p>
 
-                                        <button className="text-sm text-gray-400 cursor-not-allowed flex items-center gap-1" disabled>
+                                        <button className="text-sm text-gray-400 dark:text-gray-500 cursor-not-allowed flex items-center gap-1" disabled>
                                             <span>Cancel subscription</span>
-                                            <span className="text-xs bg-gray-200 text-gray-500 px-2 py-0.5 rounded-full">Free Plan</span>
+                                            <span className="text-xs bg-gray-200 dark:bg-gray-600 text-gray-500 dark:text-gray-400 px-2 py-0.5 rounded-full">Free Plan</span>
                                         </button>
                                     </div>
                                 </div>

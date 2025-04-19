@@ -1,9 +1,8 @@
 'use client';
 
 import { Search } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { TranscriptSegment, TranscriptResponse } from '@/types/youtube'; // Import types
-
 
 export default function HomePage() {
     const [isFocused, setIsFocused] = useState(false);
@@ -12,8 +11,15 @@ export default function HomePage() {
     const [result, setResult] = useState<TranscriptResponse | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [selectedModel, setSelectedModel] = useState('');
+    const [, setMounted] = useState(false);
+
+    // Set mounted state once the component is mounted
+    useEffect(() => {
+        setMounted(true);
+    }, []);
 
     const handleSubmit = async () => {
+        // Existing submission logic
         if (!youtubeUrl) {
             setError('Please enter a YouTube URL');
             return;
@@ -49,21 +55,21 @@ export default function HomePage() {
     };
 
     return (
-        <div className="min-h-screen bg-gradient-to-b from-white to-orange-50/30 flex flex-col items-center justify-center px-4">
+        <div className="min-h-screen bg-white dark:bg-gray-900 flex flex-col items-center justify-center px-4 transition-colors">
             {/* Welcome Message */}
             <div className="text-center mb-12 animate-fade-in">
-                <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-2">
+                <h1 className="text-4xl md:text-5xl font-bold text-gray-900 dark:text-white mb-2">
                     Welcome Back!
                 </h1>
-                <p className="text-gray-500 text-lg">
+                <p className="text-gray-500 dark:text-gray-400 text-lg">
                     What would you like to summarize today?
                 </p>
             </div>
 
             {/* Search Section */}
             <div className={`w-full max-w-2xl transition-all duration-300 ease-in-out transform
-        ${isFocused ? 'scale-105' : 'scale-100'}`}>
-                <div className="flex gap-3 bg-white p-2 rounded-2xl shadow-lg shadow-orange-100/50">
+                ${isFocused ? 'scale-105' : 'scale-100'}`}>
+                <div className="flex gap-3 bg-white dark:bg-gray-800 p-2 rounded-2xl shadow-lg shadow-orange-100/50 dark:shadow-orange-900/20">
                     {/* Search Input */}
                     <div className="flex-1">
                         <input
@@ -71,7 +77,7 @@ export default function HomePage() {
                             value={youtubeUrl}
                             onChange={(e) => setYoutubeUrl(e.target.value)}
                             placeholder="Enter YouTube URL..."
-                            className="w-full px-6 py-4 rounded-xl bg-transparent focus:outline-none text-gray-700 placeholder-gray-400"
+                            className="w-full px-6 py-4 rounded-xl bg-transparent focus:outline-none text-gray-700 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500"
                             onFocus={() => setIsFocused(true)}
                             onBlur={() => setIsFocused(false)}
                         />
@@ -82,7 +88,7 @@ export default function HomePage() {
                         <select
                             value={selectedModel}
                             onChange={(e) => setSelectedModel(e.target.value)}
-                            className="h-12 px-4 rounded-xl bg-gray-50 border-none appearance-none pr-8 focus:outline-none text-gray-600 cursor-pointer hover:bg-gray-100 transition-colors"
+                            className="h-12 px-4 rounded-xl bg-gray-50 dark:bg-gray-700 border-none appearance-none pr-8 focus:outline-none text-gray-600 dark:text-gray-300 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
                         >
                             <option value="">AI Model</option>
                             <option value="openai">OpenAI</option>
@@ -106,21 +112,21 @@ export default function HomePage() {
                 </div>
 
                 {/* Quick Tips */}
-                <div className="mt-6 text-center text-sm text-gray-400">
+                <div className="mt-6 text-center text-sm text-gray-400 dark:text-gray-500">
                     Try pasting a YouTube URL to get started
                 </div>
 
                 {/* Error Message */}
                 {error && (
-                    <div className="mt-6 text-red-500 text-center p-4 bg-red-50 rounded-xl">
+                    <div className="mt-6 text-red-500 dark:text-red-400 text-center p-4 bg-red-50 dark:bg-red-900/20 rounded-xl">
                         {error}
                     </div>
                 )}
 
                 {/* Results Preview */}
                 {result && (
-                    <div className="mt-6 p-6 bg-white rounded-xl shadow-md">
-                        <h2 className="text-xl font-bold mb-2">{result.metadata.title}</h2>
+                    <div className="mt-6 p-6 bg-white dark:bg-gray-800 rounded-xl shadow-md">
+                        <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">{result.metadata.title}</h2>
                         {result.metadata.thumbnailUrl && (
                             <div className="mb-4">
                                 <img
@@ -131,18 +137,18 @@ export default function HomePage() {
                             </div>
                         )}
                         <div className="mt-4">
-                            <h3 className="font-semibold text-lg mb-2">Transcript Preview:</h3>
-                            <div className="max-h-60 overflow-y-auto bg-gray-50 p-4 rounded-lg">
+                            <h3 className="font-semibold text-lg text-gray-900 dark:text-white mb-2">Transcript Preview:</h3>
+                            <div className="max-h-60 overflow-y-auto bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
                                 {result.transcript.slice(0, 5).map((segment: TranscriptSegment, index: number) => (
-                                    <div key={index} className="mb-2 pb-2 border-b border-gray-100">
-                                        <p className="text-gray-700">{segment.text}</p>
-                                        <span className="text-xs text-gray-400">
+                                    <div key={index} className="mb-2 pb-2 border-b border-gray-100 dark:border-gray-600">
+                                        <p className="text-gray-700 dark:text-gray-300">{segment.text}</p>
+                                        <span className="text-xs text-gray-400 dark:text-gray-500">
                                             {Math.floor(segment.offset / 1000)}s
                                         </span>
                                     </div>
                                 ))}
                                 {result.transcript.length > 5 && (
-                                    <p className="text-center text-gray-500 mt-2">
+                                    <p className="text-center text-gray-500 dark:text-gray-400 mt-2">
                                         ... and {result.transcript.length - 5} more segments
                                     </p>
                                 )}

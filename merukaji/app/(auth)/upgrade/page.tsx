@@ -1,13 +1,17 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { CheckCircle2, Info, ArrowRight } from 'lucide-react';
 import { useSession } from 'next-auth/react';
 import Link from 'next/link';
-
 export default function UpgradePage() {
-    const { data: session, status } = useSession();
+    const { data: session } = useSession();
     const [annualBilling, setAnnualBilling] = useState(true);
+    const [, setMounted] = useState(false);
+
+    useEffect(() => {
+        setMounted(true);
+    }, []);
 
     // Sample plans data - this would come from your backend in a real implementation
     const plans = [
@@ -61,34 +65,34 @@ export default function UpgradePage() {
     };
 
     return (
-        <div className="flex min-h-screen">
-            <main className={`flex-1 ${session ? 'lg:ml-16' : ''}`}>
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <div className="flex min-h-screen bg-white dark:bg-gray-900 transition-colors">
+            <main className={`flex-1 ${session ? '' : ''}`}>
+                <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8 py-12">
                     <div className="text-center mb-10">
-                        <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-3">
+                        <h1 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-3">
                             Choose the Right Plan for You
                         </h1>
-                        <p className="text-lg text-gray-600 max-w-3xl mx-auto">
+                        <p className="text-lg text-gray-600 dark:text-gray-400 max-w-3xl mx-auto">
                             Upgrade to unlock more features and get the most out of your video summaries
                         </p>
                     </div>
 
                     {/* Billing toggle */}
                     <div className="flex justify-center mb-12">
-                        <div className="bg-gray-100 p-1 rounded-lg inline-flex items-center">
+                        <div className="bg-gray-100 dark:bg-gray-800 p-1 rounded-lg inline-flex items-center">
                             <button
-                                className={`px-4 py-2 rounded-md text-sm font-medium ${annualBilling
-                                    ? 'bg-white text-gray-900 shadow-sm'
-                                    : 'text-gray-700 hover:bg-gray-50'
+                                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${annualBilling
+                                    ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
+                                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
                                     }`}
                                 onClick={() => setAnnualBilling(true)}
                             >
                                 Annual (Save 10%)
                             </button>
                             <button
-                                className={`px-4 py-2 rounded-md text-sm font-medium ${!annualBilling
-                                    ? 'bg-white text-gray-900 shadow-sm'
-                                    : 'text-gray-700 hover:bg-gray-50'
+                                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${!annualBilling
+                                    ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
+                                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
                                     }`}
                                 onClick={() => setAnnualBilling(false)}
                             >
@@ -102,7 +106,9 @@ export default function UpgradePage() {
                         {plans.map((plan) => (
                             <div
                                 key={plan.name}
-                                className={`bg-white rounded-xl overflow-hidden border ${plan.popular ? 'border-[#FFAB5B] shadow-lg' : 'border-gray-200'
+                                className={`bg-white dark:bg-gray-800 rounded-xl overflow-hidden border ${plan.popular
+                                    ? 'border-[#FFAB5B] shadow-lg'
+                                    : 'border-gray-200 dark:border-gray-700'
                                     }`}
                             >
                                 {plan.popular && (
@@ -112,24 +118,24 @@ export default function UpgradePage() {
                                 )}
                                 <div className="p-6">
                                     <div className="mb-5">
-                                        <h2 className="text-2xl font-bold text-gray-900 mb-1">{plan.name}</h2>
-                                        <p className="text-gray-600">{plan.description}</p>
+                                        <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-1">{plan.name}</h2>
+                                        <p className="text-gray-600 dark:text-gray-400">{plan.description}</p>
                                     </div>
 
                                     <div className="mb-6">
                                         {plan.price === 0 ? (
-                                            <div className="text-3xl font-bold text-gray-900">Free</div>
+                                            <div className="text-3xl font-bold text-gray-900 dark:text-white">Free</div>
                                         ) : (
                                             <div className="flex items-baseline">
-                                                <span className="text-3xl font-bold text-gray-900">USD {plan.price}</span>
-                                                <span className="text-gray-600 ml-2 text-sm">
+                                                <span className="text-3xl font-bold text-gray-900 dark:text-white">USD {plan.price}</span>
+                                                <span className="text-gray-600 dark:text-gray-400 ml-2 text-sm">
                                                     / month {annualBilling ? 'billed annually' : ''}
                                                 </span>
                                             </div>
                                         )}
 
                                         {plan.name === 'Pro' && annualBilling && (
-                                            <div className="flex items-center mt-2 text-sm text-gray-600">
+                                            <div className="flex items-center mt-2 text-sm text-gray-600 dark:text-gray-400">
                                                 <Info className="h-4 w-4 mr-1" />
                                                 Pay annually to save 10%
                                             </div>
@@ -138,11 +144,11 @@ export default function UpgradePage() {
 
                                     <button
                                         onClick={() => handleUpgrade(plan.name, plan.priceId)}
-                                        className={`w-full py-3 px-4 rounded-xl font-medium flex items-center justify-center ${plan.name === 'Free'
-                                            ? 'bg-gray-100 text-gray-800 hover:bg-gray-200'
+                                        className={`w-full py-3 px-4 rounded-xl font-medium flex items-center justify-center transition-colors ${plan.name === 'Free'
+                                            ? 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600'
                                             : plan.popular
                                                 ? 'bg-[#E99947] hover:bg-[#FF9B3B] text-white'
-                                                : 'bg-gray-900 hover:bg-black text-white'
+                                                : 'bg-gray-900 dark:bg-gray-800 hover:bg-black dark:hover:bg-gray-700 text-white'
                                             }`}
                                     >
                                         {plan.name === 'Free'
@@ -152,15 +158,15 @@ export default function UpgradePage() {
                                     </button>
                                 </div>
 
-                                <div className="border-t border-gray-100 p-6">
-                                    <h3 className="font-medium text-gray-900 mb-4">
+                                <div className="border-t border-gray-100 dark:border-gray-700 p-6">
+                                    <h3 className="font-medium text-gray-900 dark:text-white mb-4">
                                         {plan.name === 'Free' ? 'What\'s included:' : `Everything in ${plan.name === 'Pro' ? 'Free' : 'Pro'}, plus:`}
                                     </h3>
                                     <ul className="space-y-3">
                                         {plan.features.map((feature, index) => (
                                             <li key={index} className="flex">
                                                 <CheckCircle2 className="h-5 w-5 text-[#E99947] flex-shrink-0 mr-3" />
-                                                <span className="text-gray-700">{feature}</span>
+                                                <span className="text-gray-700 dark:text-gray-300">{feature}</span>
                                             </li>
                                         ))}
                                     </ul>
@@ -169,7 +175,7 @@ export default function UpgradePage() {
                         ))}
                     </div>
 
-                    <div className="mt-12 text-center text-gray-600 text-sm">
+                    <div className="mt-12 text-center text-gray-600 dark:text-gray-400 text-sm">
                         <p>Prices shown do not include applicable tax. Usage limits may apply.</p>
                         <p className="mt-2">
                             Need a custom plan? <Link href="/contact" className="text-[#FFAB5B] hover:text-[#FF9B3B] font-medium">Contact us</Link>
