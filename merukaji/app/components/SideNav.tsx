@@ -48,12 +48,12 @@ export default function SideNav({ isDesktopSidebarOpen, onDesktopSidebarChange }
 
             {/* Side Navigation */}
             <div className={`
-                fixed top-0 left-0 h-full bg-white z-50 
+                fixed top-0 left-0 h-full bg-white dark:bg-gray-800 z-50 
                 transform transition-all duration-300 ease-in-out
                 ${isMobileOpen ? 'translate-x-0 w-64' : '-translate-x-full w-64'} 
                 ${!isDesktopSidebarOpen ? 'lg:w-16 lg:translate-x-0' : 'lg:w-64 lg:translate-x-0'}
                 flex flex-col
-                border-r border-gray-100
+                border-r border-gray-100 dark:border-gray-700
             `}>
                 {/* Header with Toggle Buttons */}
                 <div className="h-16 flex items-center border-b border-gray-100 bg-gray-50/50">

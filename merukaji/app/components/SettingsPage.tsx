@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { CreditCard, User, Check } from 'lucide-react';
+import { CreditCard, User, Check, Moon, Sun } from 'lucide-react';
+import { ThemeToggle } from './ThemeToggle';
 
 export default function SettingsPage() {
     const [activeTab, setActiveTab] = useState('profile');
@@ -19,12 +20,12 @@ export default function SettingsPage() {
                 <div className="flex flex-col lg:flex-row gap-8">
                     {/* Settings tabs */}
                     <div className="w-full lg:w-64">
-                        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
                             <button
                                 onClick={() => setActiveTab('profile')}
                                 className={`w-full px-4 py-3.5 text-left transition-colors flex items-center gap-3 border-l-2 ${activeTab === 'profile'
-                                    ? 'bg-orange-50 text-orange-700 border-l-orange-500 font-medium'
-                                    : 'text-gray-700 hover:bg-gray-50 border-l-transparent'
+                                    ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-400 border-l-orange-500 font-medium'
+                                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 border-l-transparent'
                                     }`}
                             >
                                 <User className="h-4 w-4" />
@@ -33,14 +34,27 @@ export default function SettingsPage() {
                             <button
                                 onClick={() => setActiveTab('billing')}
                                 className={`w-full px-4 py-3.5 text-left transition-colors flex items-center gap-3 border-l-2 ${activeTab === 'billing'
-                                    ? 'bg-orange-50 text-orange-700 border-l-orange-500 font-medium'
-                                    : 'text-gray-700 hover:bg-gray-50 border-l-transparent'
+                                    ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-400 border-l-orange-500 font-medium'
+                                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 border-l-transparent'
                                     }`}
                             >
                                 <CreditCard className="h-4 w-4" />
                                 <span>Billing</span>
                             </button>
-
+                            <button
+                                onClick={() => setActiveTab('appearance')}
+                                className={`w-full px-4 py-3.5 text-left transition-colors flex items-center gap-3 border-l-2 ${activeTab === 'appearance'
+                                    ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-400 border-l-orange-500 font-medium'
+                                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 border-l-transparent'
+                                    }`}
+                            >
+                                {activeTab === 'appearance' ? (
+                                    <Moon className="h-4 w-4" />
+                                ) : (
+                                    <Sun className="h-4 w-4" />
+                                )}
+                                <span>Appearance</span>
+                            </button>
                         </div>
                     </div>
 
@@ -99,6 +113,33 @@ export default function SettingsPage() {
                                             className="px-5 py-2.5 bg-orange-500 hover:bg-orange-600 text-white rounded-lg transition-colors shadow-sm"
                                         >
                                             Save changes
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {activeTab === 'appearance' && (
+                            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+                                <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-6">Appearance Settings</h2>
+
+                                <div className="space-y-6">
+                                    <div>
+                                        <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-4">Theme</h3>
+
+                                        <ThemeToggle />
+
+                                        <p className="mt-4 text-sm text-gray-500 dark:text-gray-400">
+                                            Choose between light and dark mode for your Merukaji experience. Your preference will be saved for your next visit.
+                                        </p>
+                                    </div>
+
+                                    <div className="flex justify-end">
+                                        <button
+                                            onClick={handleSaveChanges}
+                                            className="px-5 py-2.5 bg-orange-500 hover:bg-orange-600 text-white rounded-lg transition-colors shadow-sm"
+                                        >
+                                            Save preferences
                                         </button>
                                     </div>
                                 </div>
