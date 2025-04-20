@@ -12,6 +12,11 @@ export default function HomePage() {
     const [error, setError] = useState<string | null>(null);
     const [selectedModel, setSelectedModel] = useState('');
     const [, setMounted] = useState(false);
+    const [summary, setSummary] = useState<string | null>(null);
+    const [summaryType,] = useState<'short' | 'comprehensive'>('short');
+    const [isSummarizing, setIsSummarizing] = useState(false);
+    const [rateLimits, setRateLimits] = useState<{ daily: number; minute: number } | null>(null);
+
 
     // Set mounted state once the component is mounted
     useEffect(() => {
@@ -19,7 +24,6 @@ export default function HomePage() {
     }, []);
 
     const handleSubmit = async () => {
-        // Existing submission logic
         if (!youtubeUrl) {
             setError('Please enter a YouTube URL');
             return;
@@ -28,8 +32,11 @@ export default function HomePage() {
         setIsLoading(true);
         setError(null);
         setResult(null);
+        setSummary(null);
+        setIsSummarizing(false);
 
         try {
+            // First fetch transcript
             const response = await fetch('/api/youtube/transcript', {
                 method: 'POST',
                 headers: {
@@ -45,12 +52,42 @@ export default function HomePage() {
             }
 
             setResult(data);
-            console.log('Transcript data:', data);
+
+            // Then generate summary
+            setIsSummarizing(true);
+
+            const summaryResponse = await fetch('/api/summarize', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    url: youtubeUrl,
+                    summaryType
+                }),
+            });
+
+            const summaryData = await summaryResponse.json();
+
+            if (!summaryResponse.ok) {
+                if (summaryResponse.status === 429) {
+                    setRateLimits(summaryData.limits);
+                    throw new Error(summaryData.error || 'Rate limit exceeded');
+                }
+                throw new Error(summaryData.error || 'Failed to generate summary');
+            }
+
+            setSummary(summaryData.summary);
+            if (summaryData.limits) {
+                setRateLimits(summaryData.limits);
+            }
+
         } catch (err) {
             setError(err instanceof Error ? err.message : 'An unknown error occurred');
-            console.error('Error fetching transcript:', err);
+            console.error('Error:', err);
         } finally {
             setIsLoading(false);
+            setIsSummarizing(false);
         }
     };
 
@@ -120,6 +157,39 @@ export default function HomePage() {
                 {error && (
                     <div className="mt-6 text-red-500 dark:text-red-400 text-center p-4 bg-red-50 dark:bg-red-800/20 rounded-xl">
                         {error}
+                    </div>
+                )}
+
+                {summary && (
+                    <div className="mt-6 p-6 bg-white dark:bg-gray-800 rounded-xl shadow-md">
+                        <h2 className="text-xl font-bold text-gray-800 dark:text-white mb-4">Summary</h2>
+                        <div className="prose dark:prose-invert max-w-none">
+                            {summary.split('\n').map((line, index) => (
+                                line.trim() ? <p key={index} className="mb-3 text-gray-700 dark:text-gray-300">{line}</p> : <br key={index} />
+                            ))}
+                        </div>
+                    </div>
+                )}
+
+                {/* Rate Limit Display */}
+                {rateLimits && (
+                    <div className="mt-4 text-sm text-gray-500 dark:text-gray-400 text-center">
+                        You have {rateLimits.daily} summaries remaining today.
+                    </div>
+                )}
+
+                {/* Loading States */}
+                {isLoading && !isSummarizing && (
+                    <div className="mt-6 text-center">
+                        <div className="inline-block animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-orange-500"></div>
+                        <p className="mt-2 text-gray-600 dark:text-gray-400">Fetching video transcript...</p>
+                    </div>
+                )}
+
+                {isSummarizing && (
+                    <div className="mt-6 text-center">
+                        <div className="inline-block animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-orange-500"></div>
+                        <p className="mt-2 text-gray-600 dark:text-gray-400">Generating summary...</p>
                     </div>
                 )}
 
