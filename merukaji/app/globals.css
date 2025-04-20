@@ -1,4 +1,6 @@
-@import "tailwindcss";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
 /* Define your theme variables */
 :root {
@@ -11,9 +13,6 @@
   --background: #0a0a0a;
   --foreground: #ededed;
 }
-
-/* Define the dark variant for Tailwind v4 */
-@variant dark (&:where(.dark, .dark *));
 
 /* Apply these variables to the body */
 body {
