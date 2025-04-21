@@ -13,8 +13,8 @@ if (!API_KEY) {
 // Initialize the Gemini API client
 const genAI = new GoogleGenerativeAI(API_KEY);
 
-// Create a client for the Gemini-Pro model
-export const geminiProModel = genAI.getGenerativeModel({ model: "gemini-pro" });
+// Create a client for the Gemini-Flash-2.0 model
+export const geminiProModel = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
 /**
  * Generate a summary from YouTube transcript using Gemini API

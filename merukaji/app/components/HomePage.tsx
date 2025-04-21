@@ -3,8 +3,10 @@
 import { Search } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { TranscriptSegment, TranscriptResponse } from '@/types/youtube'; // Import types
+import { useToast } from '@/app/components/contexts/ToastContext';
 
 export default function HomePage() {
+    const { showToast } = useToast();
     const [isFocused, setIsFocused] = useState(false);
     const [youtubeUrl, setYoutubeUrl] = useState('');
     const [isLoading, setIsLoading] = useState(false);
@@ -25,7 +27,7 @@ export default function HomePage() {
 
     const handleSubmit = async () => {
         if (!youtubeUrl) {
-            setError('Please enter a YouTube URL');
+            showToast('Please enter a YouTube URL', 'error');
             return;
         }
 
@@ -72,6 +74,21 @@ export default function HomePage() {
             if (!summaryResponse.ok) {
                 if (summaryResponse.status === 429) {
                     setRateLimits(summaryData.limits);
+
+                    // Show a specific toast for rate limiting
+                    if (summaryData.error.includes('Daily limit exceeded')) {
+                        showToast(
+                            `Daily limit reached (${summaryData.limits.daily}/3). Please upgrade for more summaries.`,
+                            'warning',
+                            8000
+                        );
+                    } else {
+                        showToast(
+                            'Too many requests. Please try again in a minute.',
+                            'warning'
+                        );
+                    }
+
                     throw new Error(summaryData.error || 'Rate limit exceeded');
                 }
                 throw new Error(summaryData.error || 'Failed to generate summary');
@@ -82,8 +99,28 @@ export default function HomePage() {
                 setRateLimits(summaryData.limits);
             }
 
-        } catch (err) {
-            setError(err instanceof Error ? err.message : 'An unknown error occurred');
+            // Show success toast
+            if (summaryData.cached) {
+                showToast('Summary retrieved from cache', 'info');
+            } else {
+                showToast('Summary generated successfully', 'success');
+            }
+
+        } catch (err: unknown) { // Explicitly type err as unknown
+            // Safe way to handle the error - type checking properly
+            const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred';
+            setError(errorMessage);
+
+            // Check for rate limit error messages safely
+            const isRateLimitError =
+                errorMessage.includes('Rate limit exceeded') ||
+                errorMessage.includes('Daily limit exceeded');
+
+            // Only show toast for errors that aren't rate limits (those are handled above)
+            if (!isRateLimitError) {
+                showToast(errorMessage, 'error');
+            }
+
             console.error('Error:', err);
         } finally {
             setIsLoading(false);
