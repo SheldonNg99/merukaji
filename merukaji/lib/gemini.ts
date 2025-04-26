@@ -73,8 +73,8 @@ ${videoMetadata.duration ? `Duration: ${videoMetadata.duration}` : ''}
 
     // Define summary type expectations
     const summaryInstructions = summaryType === 'short'
-        ? "Create a concise summary in about 3-5 bullet points that captures the key information. Focus only on the most important points."
-        : "Create a comprehensive summary that includes main topics, key insights, important details, and any actionable information. Organize by sections with clear headings.";
+        ? "Create a concise summary with 5-10 key points. Format with clear headings and bullet points where appropriate."
+        : "Create a comprehensive summary that includes main topics and insights. Use clear headings for each section and proper spacing between paragraphs.";
 
     // Construct the full prompt
     return `
@@ -98,6 +98,10 @@ FORMAT GUIDELINES:
 - Highlight any key takeaways or actionable insights
 - Do not add information not present in the transcript
 - Do not begin with phrases like "This video is about" or "In this video"
+- Use bold headings for main sections
+- Separate different topics with line breaks
+- Use bullet points for lists of related items
+- Structure the summary with a clear introduction and conclusion
 
 Your summary:
 `;
