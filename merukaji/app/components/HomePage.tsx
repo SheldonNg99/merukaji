@@ -1,6 +1,6 @@
 'use client';
 
-import { Search } from 'lucide-react';
+import { BookDown } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { TranscriptResponse } from '@/types/youtube';
 import { useToast } from '@/app/components/contexts/ToastContext';
@@ -196,23 +196,28 @@ export default function HomePage() {
                             <AIModelDropdown
                                 selectedModel={selectedModel}
                                 onChange={setSelectedModel}
+                                disabled={!youtubeUrl}
                             />
                         </div>
 
                         {/* Search Button */}
                         <button
                             onClick={handleSubmit}
-                            disabled={isLoading || isSummarizing}
-                            className={`px-6 py-3 bg-gradient-to-r from-orange-400 to-orange-500 hover:from-orange-500 hover:to-orange-600 
+                            disabled={isLoading || isSummarizing || !youtubeUrl}
+                            className={`px-5 py-3 bg-gradient-to-r from-orange-400 to-orange-500 hover:from-orange-500 hover:to-orange-600 
                      text-white rounded-xl transition-all duration-300 ease-in-out hover:shadow-md 
-                     flex items-center justify-center ${isLoading || isSummarizing ? 'opacity-75 cursor-not-allowed' : ''}`}
+                     flex items-center justify-center ${isLoading || isSummarizing || !youtubeUrl ? 'opacity-75 cursor-not-allowed' : ''}`}
                         >
                             {isLoading || isSummarizing ? (
                                 <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                             ) : (
-                                <Search className="w-5 h-5" />
+                                <BookDown className="w-5 h-5" />
                             )}
                         </button>
+                    </div>
+                    {/* Quick Tips */}
+                    <div className="mt-6 text-center text-sm text-gray-500 dark:text-gray-500">
+                        Try pasting a YouTube URL to get started
                     </div>
                 </div>
             </div>

@@ -8,4 +8,5 @@ export interface AIModel {
 export interface AIModelDropdownProps {
     selectedModel: AIModelType | null;
     onChange: (model: AIModelType) => void;
+    disabled?: boolean;
 }

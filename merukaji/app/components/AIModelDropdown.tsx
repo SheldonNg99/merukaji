@@ -2,7 +2,7 @@ import { ChevronDown } from 'lucide-react';
 import { useState } from 'react';
 import { AIModel, AIModelDropdownProps } from '@/types/ai-models';
 
-export default function AIModelDropdown({ selectedModel, onChange }: AIModelDropdownProps) {
+export default function AIModelDropdown({ selectedModel, onChange, disabled = false }: AIModelDropdownProps) {
     const [isOpen, setIsOpen] = useState(false);
 
     const models: AIModel[] = [
@@ -13,15 +13,19 @@ export default function AIModelDropdown({ selectedModel, onChange }: AIModelDrop
     return (
         <div className="relative">
             <button
-                onClick={() => setIsOpen(!isOpen)}
-                className="h-12 px-4 rounded-xl bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 
-                  hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors flex items-center gap-2"
+                onClick={() => !disabled && setIsOpen(!isOpen)}
+                disabled={disabled}
+                className={`h-12 px-4 rounded-xl bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 
+                  transition-colors flex items-center gap-2
+                  ${disabled
+                        ? 'opacity-50 cursor-not-allowed'
+                        : 'hover:bg-gray-100 dark:hover:bg-gray-600 cursor-pointer'}`}
             >
                 <span className="text-sm">{selectedModel ? models.find(m => m.value === selectedModel)?.label : 'Auto-select AI'}</span>
                 <ChevronDown className="h-4 w-4" />
             </button>
 
-            {isOpen && (
+            {isOpen && !disabled && (
                 <div className="absolute top-full mt-1 w-full bg-white dark:bg-gray-800 border border-gray-100 
                       dark:border-gray-700 rounded-lg shadow-lg overflow-hidden z-50">
                     <ul className="divide-y divide-gray-100 dark:divide-gray-700">
