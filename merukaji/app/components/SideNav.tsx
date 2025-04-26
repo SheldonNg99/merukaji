@@ -1,17 +1,22 @@
-'use client';
-
+// Simplified SideNav.tsx with cleaner history display
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ChevronLeft, ChevronRight, ChevronDown, Settings, CreditCard, Layout, History, LogOut } from 'lucide-react';
 import Link from 'next/link';
 import { useSession, signOut } from 'next-auth/react';
-
 import { SideNavProps } from '@/types/sidenav-types';
+
+// Simple history item type
+interface HistoryItem {
+    id: string;
+    title: string;
+}
 
 export default function SideNav({ isDesktopSidebarOpen, onDesktopSidebarChange }: SideNavProps) {
     const router = useRouter();
     const [isMobileOpen, setIsMobileOpen] = useState(false);
     const [isProfileOpen, setIsProfileOpen] = useState(false);
+    const [historyItems, setHistoryItems] = useState<HistoryItem[]>([]);
     const [, setMounted] = useState(false);
 
     const { data: session } = useSession();
@@ -19,19 +24,33 @@ export default function SideNav({ isDesktopSidebarOpen, onDesktopSidebarChange }
     // Mark component as mounted
     useEffect(() => {
         setMounted(true);
-    }, []);
 
-    const history = [
-        'history no 6',
-        'history no 5',
-        'history no 4',
-        'history no 3',
-        'history no 2',
-        'history no 1',
-    ];
+        // Fetch history data when the component mounts
+        const fetchHistory = async () => {
+            try {
+                const response = await fetch('/api/history');
+                if (response.ok) {
+                    const data = await response.json();
+                    setHistoryItems(data.summaries || []);
+                }
+            } catch (error) {
+                console.error('Failed to fetch history:', error);
+            }
+        };
+
+        if (session?.user) {
+            fetchHistory();
+        }
+    }, [session]);
 
     const closeProfileDropdown = () => {
         setIsProfileOpen(false);
+    };
+
+    // Add scroll with fade effect
+    const sidebarScrollStyle = {
+        maskImage: 'linear-gradient(to bottom, transparent, black 10px, black 90%, transparent)',
+        WebkitMaskImage: 'linear-gradient(to bottom, transparent, black 10px, black 90%, transparent)'
     };
 
     return (
@@ -52,6 +71,7 @@ export default function SideNav({ isDesktopSidebarOpen, onDesktopSidebarChange }
                 />
             )}
 
+            {/* Side Navigation */}
             {/* Side Navigation */}
             <div className={`
                 fixed top-0 left-0 h-full bg-white dark:bg-gray-800 z-50 
@@ -87,27 +107,45 @@ export default function SideNav({ isDesktopSidebarOpen, onDesktopSidebarChange }
                     </div>
                 </div>
 
-                {/* History Section */}
-                <div className="flex-1 overflow-y-auto">
-                    <div className={`pt-6 ${!isDesktopSidebarOpen ? 'lg:px-2' : 'px-4'}`}>
-                        <h2 className={`flex text-xs font-medium text-black dark:text-white text-bold uppercase tracking-wider mb-4 
+                {/* History Section with minimalist styling */}
+                <div className="flex-1 overflow-y-auto" style={sidebarScrollStyle}>
+                    <div className={`pt-4 ${!isDesktopSidebarOpen ? 'lg:px-2' : 'px-2'}`}>
+                        <h2 className={`flex text-sm font-medium text-black dark:text-white mb-2 px-2
                             ${!isDesktopSidebarOpen ? 'lg:hidden' : ''}`}>
-                            <History className="h-4 w-4 text-gray-400 dark:text-gray-500 flex-shrink-0" />
-                            <span className="ml-3">
-                                History
-                            </span>
+                            Recents
                         </h2>
-                        <ul className={`${!isDesktopSidebarOpen ? 'lg:hidden' : ''}`}>
-                            {history.map((item, index) => (
-                                <li
-                                    key={index}
-                                    className="py-2 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg cursor-pointer 
-                                        transition-all text-sm group flex items-center"
+
+                        {/* History List */}
+                        <div className={`${!isDesktopSidebarOpen ? 'lg:hidden' : ''}`}>
+                            {historyItems.map((item) => (
+                                <Link
+                                    href={`/summary/${item.id}`}
+                                    key={item.id}
+                                    className="flex items-center px-3 py-2 rounded-md text-gray-300 hover:bg-gray-50 hover:text-white transition-colors group cursor-pointer"
                                 >
-                                    {item}
-                                </li>
+                                    <div className="w-full overflow-hidden">
+                                        <p className="text-sm truncate">
+                                            {item.title}
+                                        </p>
+                                    </div>
+                                </Link>
                             ))}
-                        </ul>
+
+                            {historyItems.length === 0 && (
+                                <div className="text-center py-6 px-3">
+                                    <p className="text-sm text-gray-500 dark:text-gray-500">No history yet</p>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Collapsed sidebar view */}
+                        {!isDesktopSidebarOpen && (
+                            <div className="hidden lg:flex flex-col items-center mt-4 space-y-3">
+                                <button className="p-2 rounded-md hover:bg-gray-800 text-gray-400 hover:text-white">
+                                    <History className="h-5 w-5" />
+                                </button>
+                            </div>
+                        )}
                     </div>
                 </div>
 
@@ -190,7 +228,7 @@ export default function SideNav({ isDesktopSidebarOpen, onDesktopSidebarChange }
                         )}
                     </div>
                 </div>
-            </div>
+            </div >
         </>
     );
 }
