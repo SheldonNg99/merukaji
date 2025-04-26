@@ -6,6 +6,8 @@ import { TranscriptResponse } from '@/types/youtube';
 import { useToast } from '@/app/components/contexts/ToastContext';
 import SummaryResultsPage from '@/app/components/SummaryResultsPage';
 import { VideoMetadata } from '@/types/youtube';
+import AIModelDropdown from '@/app/components/AIModelDropdown';
+import { AIModelType } from '@/types/ai-models';
 
 export default function HomePage() {
     const { showToast } = useToast();
@@ -13,8 +15,8 @@ export default function HomePage() {
     const [youtubeUrl, setYoutubeUrl] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [, setResult] = useState<TranscriptResponse | null>(null);
-    const [error, setError] = useState<string | null>(null);
-    const [selectedModel, setSelectedModel] = useState('');
+    const [, setError] = useState<string | null>(null);
+    const [selectedModel, setSelectedModel] = useState<AIModelType>('google');
     const [, setMounted] = useState(false);
     const [summaryData, setSummaryData] = useState<{
         summary: string;
@@ -24,7 +26,7 @@ export default function HomePage() {
     } | null>(null);
     const [summaryType,] = useState<'short' | 'comprehensive'>('short');
     const [isSummarizing, setIsSummarizing] = useState(false);
-    const [rateLimits, setRateLimits] = useState<{ daily: number; minute: number } | null>(null);
+    const [, setRateLimits] = useState<{ daily: number; minute: number } | null>(null);
 
     // Set mounted state once the component is mounted
     useEffect(() => {
@@ -156,22 +158,21 @@ export default function HomePage() {
 
     // Otherwise, show the search interface
     return (
-        <div className="w-full min-h-screen bg-gray-50 dark:bg-gray-800 flex flex-col items-center transition-colors">
+        <div className="w-full min-h-screen bg-[#fffefe] dark:bg-gray-800 flex flex-col items-center transition-colors">
             <div className="w-full max-w-4xl mx-auto px-4 flex flex-col items-center justify-center min-h-[80vh]">
                 {/* Welcome Message */}
                 <div className="text-center mb-12 animate-fade-in">
-                    <h1 className="text-4xl md:text-5xl font-bold text-gray-800 dark:text-white mb-2">
+                    <h1 className="text-4xl md:text-5xl font-bold text-gray-800 dark:text-white mb-4">
                         Welcome Back!
                     </h1>
-                    <p className="text-gray-500 dark:text-gray-400 text-lg">
+                    <p className="text-gray-600 dark:text-gray-400 text-lg">
                         What would you like to summarize today?
                     </p>
                 </div>
 
                 {/* Search Section */}
-                <div className={`w-full max-w-2xl transition-all duration-300 ease-in-out
-                        ${isFocused ? 'scale-105' : 'scale-100'}`}>
-                    <div className="flex gap-3 bg-white dark:bg-gray-800 p-2 rounded-2xl shadow-lg shadow-orange-100/50 dark:shadow-orange-800/20">
+                <div className={`w-full max-w-2xl transition-all duration-300 ease-in-out ${isFocused ? 'scale-105' : 'scale-100'}`}>
+                    <div className="flex gap-3 bg-[#f2f5f6] dark:bg-gray-800 p-2 rounded-2xl shadow-md hover:shadow-lg transition-shadow duration-300">
                         {/* Search Input */}
                         <div className="flex-1">
                             <input
@@ -179,7 +180,7 @@ export default function HomePage() {
                                 value={youtubeUrl}
                                 onChange={(e) => setYoutubeUrl(e.target.value)}
                                 placeholder="Enter YouTube URL..."
-                                className="w-full px-6 py-4 rounded-xl bg-transparent focus:outline-none text-gray-700 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500"
+                                className="w-full px-6 py-4 rounded-xl bg-transparent focus:outline-none text-gray-700 dark:text-gray-200 placeholder-gray-500 dark:placeholder-gray-500"
                                 onFocus={() => setIsFocused(true)}
                                 onBlur={() => setIsFocused(false)}
                                 onKeyDown={(e) => {
@@ -192,23 +193,19 @@ export default function HomePage() {
 
                         {/* AI Model Dropdown */}
                         <div className="self-center">
-                            <select
-                                value={selectedModel}
-                                onChange={(e) => setSelectedModel(e.target.value)}
-                                className="h-12 px-4 rounded-xl bg-gray-50 dark:bg-gray-700 border-none appearance-none pr-8 focus:outline-none text-gray-600 dark:text-gray-300 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
-                            >
-                                <option value="">Auto-select AI</option>
-                                <option value="openai">OpenAI</option>
-                                <option value="google">Google AI</option>
-                            </select>
+                            <AIModelDropdown
+                                selectedModel={selectedModel}
+                                onChange={setSelectedModel}
+                            />
                         </div>
 
                         {/* Search Button */}
                         <button
                             onClick={handleSubmit}
                             disabled={isLoading || isSummarizing}
-                            className={`px-6 py-3 bg-gradient-to-r from-orange-400 to-orange-500 hover:from-orange-500 hover:to-orange-600 text-white rounded-xl transition-all duration-300 ease-in-out hover:shadow-md flex items-center justify-center ${isLoading || isSummarizing ? 'opacity-75 cursor-not-allowed' : ''
-                                }`}
+                            className={`px-6 py-3 bg-gradient-to-r from-orange-400 to-orange-500 hover:from-orange-500 hover:to-orange-600 
+                     text-white rounded-xl transition-all duration-300 ease-in-out hover:shadow-md 
+                     flex items-center justify-center ${isLoading || isSummarizing ? 'opacity-75 cursor-not-allowed' : ''}`}
                         >
                             {isLoading || isSummarizing ? (
                                 <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
@@ -217,42 +214,6 @@ export default function HomePage() {
                             )}
                         </button>
                     </div>
-
-                    {/* Quick Tips */}
-                    <div className="mt-6 text-center text-sm text-gray-400 dark:text-gray-500">
-                        Try pasting a YouTube URL to get started
-                    </div>
-
-                    {/* Error Message */}
-                    {error && (
-                        <div className="mt-6 text-red-500 dark:text-red-400 text-center p-4 bg-red-50 dark:bg-red-800/20 rounded-xl">
-                            {error}
-                        </div>
-                    )}
-
-                    {/* Loading States */}
-                    {isLoading && !isSummarizing && (
-                        <div className="mt-8 text-center p-8 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
-                            <div className="inline-block animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-orange-500 mb-4"></div>
-                            <p className="text-gray-700 dark:text-gray-300 font-medium">Fetching video transcript...</p>
-                            <p className="text-gray-500 dark:text-gray-400 text-sm mt-2">This might take a moment</p>
-                        </div>
-                    )}
-
-                    {isSummarizing && (
-                        <div className="mt-8 text-center p-8 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
-                            <div className="inline-block animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-orange-500 mb-4"></div>
-                            <p className="text-gray-700 dark:text-gray-300 font-medium">Generating summary...</p>
-                            <p className="text-gray-500 dark:text-gray-400 text-sm mt-2">Our AI is working on extracting key points</p>
-                        </div>
-                    )}
-
-                    {/* Rate Limit Display */}
-                    {rateLimits && (
-                        <div className="mt-4 text-sm text-gray-500 dark:text-gray-400 text-center">
-                            You have {rateLimits.daily} summaries remaining today.
-                        </div>
-                    )}
                 </div>
             </div>
         </div>
