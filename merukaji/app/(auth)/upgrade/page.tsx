@@ -1,68 +1,100 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { CheckCircle2, Info, AlignLeft } from 'lucide-react';
+import { CheckCircle2, Info, ArrowRight } from 'lucide-react';
 import { useSession } from 'next-auth/react';
+import { useSearchParams } from 'next/navigation';
+import { SUBSCRIPTION_PLANS, PRICE_IDS } from '@/lib/stripe';
 import Link from 'next/link';
+
 export default function UpgradePage() {
     const { data: session } = useSession();
+    const [loading, setLoading] = useState<string | null>(null);
     const [annualBilling, setAnnualBilling] = useState(true);
-    const [, setMounted] = useState(false);
+    const searchParams = useSearchParams();
 
     useEffect(() => {
-        setMounted(true);
-    }, []);
+        // Check for success/cancel from Stripe
+        if (searchParams.get('success')) {
+            // Handle successful payment
+            // You might want to show a success message or redirect
+        }
+        if (searchParams.get('canceled')) {
+            // Handle canceled payment
+            // You might want to show a message that payment was canceled
+        }
+    }, [searchParams]);
 
-    // Sample plans data - this would come from your backend in a real implementation
+    const handleUpgrade = async (planName: string) => {
+        if (!session?.user) {
+            // Redirect to login
+            window.location.href = '/login';
+            return;
+        }
+
+        setLoading(planName);
+
+        try {
+            let priceId: string;
+
+            if (planName === 'Pro') {
+                priceId = annualBilling ? PRICE_IDS.pro.yearly : PRICE_IDS.pro.monthly;
+            } else if (planName === 'Max') {
+                priceId = annualBilling ? PRICE_IDS.max.yearly : PRICE_IDS.max.monthly;
+            } else {
+                return;
+            }
+
+            const response = await fetch('/api/payment/create-checkout', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    priceId,
+                    billingInterval: annualBilling ? 'yearly' : 'monthly',
+                }),
+            });
+
+            const { url } = await response.json();
+
+            if (url) {
+                window.location.href = url;
+            } else {
+                // Handle error
+                console.error('Failed to create checkout session');
+            }
+        } catch (error) {
+            console.error('Error:', error);
+        } finally {
+            setLoading(null);
+        }
+    };
+
+    // Create plans array from SUBSCRIPTION_PLANS
     const plans = [
         {
             name: 'Free',
-            description: 'Basic video summarization',
+            description: 'Basic functionality with limited features',
             price: 0,
-            priceId: 'price_free',
-            features: [
-                'Limited to 3 summaries per day',
-                'Basic summary length',
-                'Standard response time',
-                'Public videos only'
-            ],
+            features: SUBSCRIPTION_PLANS.free.features,
+            popular: false,
         },
         {
             name: 'Pro',
             description: 'For everyday productivity',
-            price: annualBilling ? 17 : 19,
-            priceId: annualBilling ? 'price_pro_annual' : 'price_pro_monthly',
-            features: [
-                'Up to 20 summaries per day',
-                'Extended summary length',
-                'Faster response time',
-                'Save summaries to your library',
-                'Public and unlisted videos'
-            ],
+            price: annualBilling ? SUBSCRIPTION_PLANS.pro.yearlyPrice : SUBSCRIPTION_PLANS.pro.monthlyPrice,
+            features: SUBSCRIPTION_PLANS.pro.features,
             popular: true,
         },
         {
             name: 'Max',
             description: '5-20x more usage than Pro',
-            price: annualBilling ? 100 : 120,
-            priceId: annualBilling ? 'price_max_annual' : 'price_max_monthly',
-            features: [
-                'Unlimited summaries',
-                'Comprehensive summary length',
-                'Priority processing',
-                'Save and organize summaries',
-                'Full video library management',
-                'Private video support with account linking',
-                'Advanced AI model selection'
-            ],
+            price: annualBilling ? SUBSCRIPTION_PLANS.max.yearlyPrice : SUBSCRIPTION_PLANS.max.monthlyPrice,
+            features: SUBSCRIPTION_PLANS.max.features,
+            popular: false,
         },
     ];
-
-    const handleUpgrade = (planName: string, priceId: string) => {
-        // This would connect to your Stripe checkout in a real implementation
-        console.log(`Upgrading to ${planName} with price ID ${priceId}`);
-        // Redirect to checkout or payment processing
-    };
 
     return (
         <div className="flex min-h-screen bg-white dark:bg-gray-900 transition-colors">
@@ -143,18 +175,25 @@ export default function UpgradePage() {
                                     </div>
 
                                     <button
-                                        onClick={() => handleUpgrade(plan.name, plan.priceId)}
+                                        onClick={() => handleUpgrade(plan.name)}
+                                        disabled={loading === plan.name}
                                         className={`w-full py-3 px-4 rounded-xl font-medium flex items-center justify-center transition-colors ${plan.name === 'Free'
                                             ? 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600'
                                             : plan.popular
                                                 ? 'bg-[#E99947] hover:bg-[#FF9B3B] text-white'
                                                 : 'bg-gray-900 dark:bg-gray-800 hover:bg-black dark:hover:bg-gray-700 text-white'
-                                            }`}
+                                            } ${loading === plan.name ? 'opacity-50 cursor-not-allowed' : ''}`}
                                     >
-                                        {plan.name === 'Free'
-                                            ? 'Current Plan'
-                                            : `Get ${plan.name} Plan`}
-                                        {plan.name !== 'Free' && <AlignLeft className="ml-2 h-4 w-4" />}
+                                        {loading === plan.name ? (
+                                            <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                        ) : (
+                                            <>
+                                                {plan.name === 'Free'
+                                                    ? 'Current Plan'
+                                                    : `Get ${plan.name} Plan`}
+                                                {plan.name !== 'Free' && <ArrowRight className="ml-2 h-4 w-4" />}
+                                            </>
+                                        )}
                                     </button>
                                 </div>
 
