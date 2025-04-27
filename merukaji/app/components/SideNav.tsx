@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import { ChevronLeft, ChevronRight, ChevronDown, Settings, CreditCard, Layout, History, LogOut } from 'lucide-react';
+import { AlignLeft, AlignRight, ChevronDown, Settings, CreditCard, Layout, History, LogOut } from 'lucide-react';
 import Link from 'next/link';
 import { useSession, signOut } from 'next-auth/react';
 import { SideNavProps } from '@/types/sidenav-types';
@@ -58,9 +58,9 @@ export default function SideNav({ isDesktopSidebarOpen, onDesktopSidebarChange }
             {/* Mobile Toggle Button */}
             <button
                 onClick={() => setIsMobileOpen(true)}
-                className="lg:hidden fixed top-4 left-4 z-50 text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors"
+                className="lg:hidden fixed top-5 left-4 z-50 text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors"
             >
-                <ChevronRight className={`h-6 w-6 transform transition-transform duration-300 ${isMobileOpen ? 'rotate-180' : ''}`} />
+                <AlignRight className={`h-6 w-6 transform transition-transform duration-300`} />
             </button>
 
             {/* Overlay for mobile */}
@@ -81,14 +81,14 @@ export default function SideNav({ isDesktopSidebarOpen, onDesktopSidebarChange }
                 border-r border-gray-200 dark:border-gray-700
             `}>
                 {/* Header with Toggle Buttons */}
-                <div className="h-16 flex items-center border-b border-gray-200 dark:border-gray-700 bg-[#f8faff] dark:bg-gray-900/50">
+                <div className={`h-16 flex items-center border-b border-gray-200 dark:border-gray-700 bg-[#f8faff] dark:bg-gray-900/50 ${isMobileOpen ? 'p-4' : ''}`}>
                     <div className={`flex items-center w-full ${!isDesktopSidebarOpen ? 'lg:justify-center' : 'px-4'}`}>
                         {/* Mobile Toggle */}
                         <button
                             onClick={() => setIsMobileOpen(false)}
                             className="lg:hidden text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors"
                         >
-                            <ChevronLeft className="h-6 w-6" />
+                            <AlignLeft className="h-6 w-6" />
                         </button>
 
                         {/* Desktop Toggle */}
@@ -96,7 +96,7 @@ export default function SideNav({ isDesktopSidebarOpen, onDesktopSidebarChange }
                             onClick={() => onDesktopSidebarChange(!isDesktopSidebarOpen)}
                             className="hidden lg:flex text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors"
                         >
-                            <ChevronLeft className={`h-6 w-6 transform transition-transform duration-300 ${!isDesktopSidebarOpen ? 'rotate-180' : ''}`} />
+                            <AlignRight className={`h-6 w-6 transform transition-transform duration-300 ${isDesktopSidebarOpen ? <AlignLeft className={`h-6 w-6 transform transition-transform duration-300`} /> : ''}`} />
                         </button>
 
                         {/* Make the title a link to the home page */}
@@ -155,7 +155,7 @@ export default function SideNav({ isDesktopSidebarOpen, onDesktopSidebarChange }
                 </div>
 
                 {/* Profile Section */}
-                <div className="mt-auto border-t border-gray-200 dark:border-gray-700">
+                <div className={`mt-auto border-t border-gray-200 dark:border-gray-700 ${isMobileOpen ? 'px-3' : ''}`}>
                     <div className="relative">
                         <button
                             onClick={() => setIsProfileOpen(!isProfileOpen)}
@@ -163,7 +163,7 @@ export default function SideNav({ isDesktopSidebarOpen, onDesktopSidebarChange }
                                 hover:bg-white dark:hover:bg-gray-700/80 transition-all
                                 ${!isDesktopSidebarOpen ? 'lg:justify-center lg:px-2' : 'px-4'}`}
                         >
-                            <div className={`flex items-center ${!isDesktopSidebarOpen ? 'lg:justify-center' : 'space-x-3'}`}>
+                            <div className={`flex items-center ${!isDesktopSidebarOpen || !isMobileOpen ? 'lg:justify-center' : 'space-x-3'}`}>
                                 <div className="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-600 flex items-center justify-center flex-shrink-0">
                                     <span className="text-xs text-gray-600 dark:text-gray-200">
                                         {session?.user?.name?.[0] || 'U'}

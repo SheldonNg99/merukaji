@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { CheckCircle2, Info, ArrowRight } from 'lucide-react';
+import { CheckCircle2, Info, AlignLeft } from 'lucide-react';
 import { useSession } from 'next-auth/react';
 import Link from 'next/link';
 export default function UpgradePage() {
@@ -154,7 +154,7 @@ export default function UpgradePage() {
                                         {plan.name === 'Free'
                                             ? 'Current Plan'
                                             : `Get ${plan.name} Plan`}
-                                        {plan.name !== 'Free' && <ArrowRight className="ml-2 h-4 w-4" />}
+                                        {plan.name !== 'Free' && <AlignLeft className="ml-2 h-4 w-4" />}
                                     </button>
                                 </div>
 
