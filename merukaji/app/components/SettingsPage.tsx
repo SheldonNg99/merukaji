@@ -1,12 +1,16 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { CreditCard, User, Check, Moon, Sun } from 'lucide-react';
 import { ThemeToggle } from './ThemeToggle';
 
 export default function SettingsPage() {
     const [activeTab, setActiveTab] = useState('profile');
     const [username, setUsername] = useState('');
+
+    const handleSaveChanges = () => {
+
+    };
 
     return (
         <div className="w-full min-h-screen bg-[#fffefe] dark:bg-gray-800 ">
