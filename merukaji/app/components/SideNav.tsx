@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { AlignLeft, AlignRight, ChevronDown, Settings, CreditCard, Layout, History, LogOut } from 'lucide-react';
 import Link from 'next/link';
@@ -18,6 +18,9 @@ export default function SideNav({ isDesktopSidebarOpen, onDesktopSidebarChange }
     const [isProfileOpen, setIsProfileOpen] = useState(false);
     const [historyItems, setHistoryItems] = useState<HistoryItem[]>([]);
     const [, setMounted] = useState(false);
+
+    // Ref for the profile dropdown container
+    const profileDropdownRef = useRef<HTMLDivElement>(null);
 
     const { data: session } = useSession();
 
@@ -43,8 +46,35 @@ export default function SideNav({ isDesktopSidebarOpen, onDesktopSidebarChange }
         }
     }, [session]);
 
+    // Add click away listener to close dropdown
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (
+                profileDropdownRef.current &&
+                !profileDropdownRef.current.contains(event.target as Node) &&
+                isProfileOpen
+            ) {
+                setIsProfileOpen(false);
+            }
+        };
+
+        // Add event listener
+        document.addEventListener('mousedown', handleClickOutside);
+
+        // Clean up event listener
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
+    }, [isProfileOpen]);
+
     const closeProfileDropdown = () => {
         setIsProfileOpen(false);
+    };
+
+    // Handler for navigation items that should close the dropdown
+    const handleNavigation = (path: string) => {
+        closeProfileDropdown();
+        router.push(path);
     };
 
     // Add scroll with fade effect
@@ -156,7 +186,7 @@ export default function SideNav({ isDesktopSidebarOpen, onDesktopSidebarChange }
 
                 {/* Profile Section */}
                 <div className={`mt-auto border-t border-gray-200 dark:border-gray-700 ${isMobileOpen ? 'px-3' : ''}`}>
-                    <div className="relative">
+                    <div className="relative" ref={profileDropdownRef}>
                         <button
                             onClick={() => setIsProfileOpen(!isProfileOpen)}
                             className={`w-full py-4 flex items-center text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white 
@@ -169,7 +199,7 @@ export default function SideNav({ isDesktopSidebarOpen, onDesktopSidebarChange }
                                         {session?.user?.name?.[0] || 'U'}
                                     </span>
                                 </div>
-                                <span className={`text-sm font-medium ${!isDesktopSidebarOpen ? 'lg:hidden' : ''}`}>
+                                <span className={`text-sm font-medium ${!isDesktopSidebarOpen ? 'lg:hidden' : 'ml-2'}`}>
                                     {session?.user?.email || 'username@email.com'}
                                 </span>
                             </div>
@@ -183,28 +213,33 @@ export default function SideNav({ isDesktopSidebarOpen, onDesktopSidebarChange }
                                 ${!isDesktopSidebarOpen ? 'lg:left-full lg:w-52 lg:bottom-2 lg:rounded-l-none lg:rounded-r-lg' : 'left-0 w-[calc(100%-16px)]'}`}>
                                 <ul className="divide-y divide-gray-100 dark:divide-gray-700">
                                     <li
-                                        onClick={closeProfileDropdown}
+                                        onClick={() => {
+                                            closeProfileDropdown();
+                                        }}
                                         className="px-4 py-3 hover:bg-[#f8faff] dark:hover:bg-gray-700 cursor-pointer transition-colors flex items-center gap-3 text-sm text-gray-700 dark:text-gray-300"
                                     >
                                         <CreditCard className="h-4 w-4 text-gray-400 dark:text-gray-500" />
-                                        <span>Plan Details</span>
+                                        <div>
+                                            <span>Plan Details</span>
+                                            <span className="ml-2 px-2 py-0.5 text-xs font-medium bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 rounded-full">
+                                                {session?.user?.tier ? session.user.tier.charAt(0).toUpperCase() + session.user.tier.slice(1) : 'Free'}
+                                            </span>
+                                        </div>
                                     </li>
-                                    <Link href="/settings">
-                                        <li
-                                            onClick={() => {
-                                                closeProfileDropdown();
-                                            }}
-                                            className="px-4 py-3 hover:bg-[#f8faff] dark:hover:bg-gray-700 cursor-pointer transition-colors flex items-center gap-3 text-sm text-gray-700 dark:text-gray-300">
-                                            <Settings className="h-4 w-4 text-gray-400 dark:text-gray-500" />
-                                            <span>Settings</span>
-                                        </li>
-                                    </Link>
-                                    <Link href="/upgrade">
-                                        <li className="px-4 py-3 hover:bg-[#f8faff] dark:hover:bg-gray-700 cursor-pointer transition-colors flex items-center gap-3 text-sm text-gray-700 dark:text-gray-300">
-                                            <Layout className="h-4 w-4 text-gray-400 dark:text-gray-500" />
-                                            <span>View All Plans</span>
-                                        </li>
-                                    </Link>
+                                    <li
+                                        onClick={() => handleNavigation('/settings')}
+                                        className="px-4 py-3 hover:bg-[#f8faff] dark:hover:bg-gray-700 cursor-pointer transition-colors flex items-center gap-3 text-sm text-gray-700 dark:text-gray-300"
+                                    >
+                                        <Settings className="h-4 w-4 text-gray-400 dark:text-gray-500" />
+                                        <span>Settings</span>
+                                    </li>
+                                    <li
+                                        onClick={() => handleNavigation('/upgrade')}
+                                        className="px-4 py-3 hover:bg-[#f8faff] dark:hover:bg-gray-700 cursor-pointer transition-colors flex items-center gap-3 text-sm text-gray-700 dark:text-gray-300"
+                                    >
+                                        <Layout className="h-4 w-4 text-gray-400 dark:text-gray-500" />
+                                        <span>View All Plans</span>
+                                    </li>
                                     {session ? (
                                         <li
                                             onClick={() => {
@@ -220,7 +255,7 @@ export default function SideNav({ isDesktopSidebarOpen, onDesktopSidebarChange }
                                         <li
                                             onClick={() => {
                                                 closeProfileDropdown();
-                                                router.push('/login'); // Use Next.js router for navigation
+                                                router.push('/login');
                                             }}
                                             className="px-4 py-3 hover:bg-[#f8faff] dark:hover:bg-gray-700 cursor-pointer transition-colors flex items-center gap-3 text-sm text-gray-700 dark:text-gray-300"
                                         >
@@ -233,7 +268,7 @@ export default function SideNav({ isDesktopSidebarOpen, onDesktopSidebarChange }
                         )}
                     </div>
                 </div>
-            </div >
+            </div>
         </>
     );
 }

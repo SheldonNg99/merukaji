@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { CreditCard, User, Check, Moon, Sun } from 'lucide-react';
 import { ThemeToggle } from './ThemeToggle';
 
