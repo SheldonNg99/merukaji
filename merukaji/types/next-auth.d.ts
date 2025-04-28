@@ -17,3 +17,10 @@ declare module "next-auth" {
         subscriptionEndDate?: Date;
     }
 }
+
+declare module "next-auth/jwt" {
+    interface JWT {
+        id: string;
+        tier: string;
+    }
+}
