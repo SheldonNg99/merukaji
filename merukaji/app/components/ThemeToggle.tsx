@@ -37,7 +37,6 @@ export function ThemeToggle() {
 
     // Enhanced theme change function
     const handleThemeChange = (newTheme: string) => {
-        console.log(`Setting theme to: ${newTheme}`);
 
         // Apply the theme class directly for immediate effect
         if (newTheme === 'dark') {

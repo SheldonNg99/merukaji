@@ -389,8 +389,6 @@ export async function cacheTranscript(
             },
             { upsert: true } // Create if doesn't exist
         );
-
-        console.log(`Cached transcript for video ${videoId} until ${expiresAt.toISOString()}`);
     } catch (error) {
         console.error('Error caching transcript:', error);
         // Continue without caching on error

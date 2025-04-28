@@ -1,6 +1,10 @@
 import { loadStripe } from '@stripe/stripe-js';
 
-export const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
+const publishableKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || process.env.STRIPE_PUBLISHABLE_KEY;
+
+export const stripePromise = typeof window !== 'undefined' && publishableKey ?
+    loadStripe(publishableKey) :
+    null;
 
 export const PRICE_IDS = {
     pro: {
@@ -52,6 +56,28 @@ export const SUBSCRIPTION_PLANS = {
     },
 };
 
-if (typeof window !== 'undefined' && (!PRICE_IDS.pro.monthly || !PRICE_IDS.pro.yearly || !PRICE_IDS.max.monthly || !PRICE_IDS.max.yearly)) {
+// Add a helper function to check if Stripe is properly configured
+export const isStripeConfigured = () => {
+    const publishableKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || process.env.STRIPE_PUBLISHABLE_KEY;
+
+    return Boolean(
+        publishableKey &&
+        PRICE_IDS.pro.monthly &&
+        PRICE_IDS.pro.yearly &&
+        PRICE_IDS.max.monthly &&
+        PRICE_IDS.max.yearly
+    );
+};
+
+if (typeof window !== 'undefined' &&
+    !(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || process.env.STRIPE_PUBLISHABLE_KEY)) {
+    console.warn('Stripe publishable key is missing in environment variables');
+}
+
+if (typeof window !== 'undefined' &&
+    (!PRICE_IDS.pro.monthly ||
+        !PRICE_IDS.pro.yearly ||
+        !PRICE_IDS.max.monthly ||
+        !PRICE_IDS.max.yearly)) {
     console.warn('Missing Stripe price IDs in environment variables');
 }

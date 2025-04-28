@@ -25,11 +25,7 @@ export default function SummaryPage() {
                 setLoading(true);
                 setError(null);
 
-                console.log('Fetching summary with ID:', id);
-
                 const response = await fetch(`/api/summary/${id}`);
-
-                console.log('Response status:', response.status);
 
                 const contentType = response.headers.get("content-type");
 

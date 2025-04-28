@@ -1,25 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { CreditCard, User, Check, Moon, Sun } from 'lucide-react';
 import { ThemeToggle } from './ThemeToggle';
 
 export default function SettingsPage() {
     const [activeTab, setActiveTab] = useState('profile');
     const [username, setUsername] = useState('');
-
-    useEffect(() => {
-        console.log('Theme in localStorage:', {
-            'merukaji-theme': localStorage.getItem('merukaji-theme'),
-            'theme': localStorage.getItem('theme'),
-        });
-        console.log('Dark class on HTML:', document.documentElement.classList.contains('dark'));
-    }, []);
-
-    const handleSaveChanges = () => {
-        // This will be connected to the backend later
-        console.log('Saving changes:', { username });
-    };
 
     return (
         <div className="w-full min-h-screen bg-[#fffefe] dark:bg-gray-800 ">
