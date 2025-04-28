@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import SummaryResultsPage from '@/app/components/SummaryResultsPage';
 import { VideoMetadata } from '@/types/youtube';
+import Loading from '@/app/components/ui/Loading';
 
 export default function SummaryPage() {
     const params = useParams();
@@ -59,14 +60,7 @@ export default function SummaryPage() {
     }, [id]);
 
     if (loading) {
-        return (
-            <div className="flex items-center justify-center min-h-screen">
-                <div className="text-center">
-                    <div className="inline-block animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-orange-500 mb-4"></div>
-                    <p className="text-gray-700 dark:text-gray-300">Loading summary...</p>
-                </div>
-            </div>
-        );
+        return <Loading message="Loading summary..." />;
     }
 
     if (error || !summaryData) {

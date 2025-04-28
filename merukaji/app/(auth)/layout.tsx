@@ -3,6 +3,7 @@
 import ClientLayout from "../client-layout";
 import { useSession } from "next-auth/react";
 import { redirect } from "next/navigation";
+import Loading from "../components/ui/Loading";
 
 export default function AuthenticatedLayout({
     children,
@@ -17,7 +18,7 @@ export default function AuthenticatedLayout({
     });
 
     if (status === "loading") {
-        return <div>Loading...</div>;
+        return <Loading message="Loading..." />;
     }
 
     return <ClientLayout>{children}</ClientLayout>;

@@ -5,44 +5,43 @@ import { CheckCircle2, Info, ArrowRight } from 'lucide-react';
 import { useSession } from 'next-auth/react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { SUBSCRIPTION_PLANS, PRICE_IDS } from '@/lib/stripe-client';
+import Loading from '@/app/components/ui/Loading';
 import Link from 'next/link';
 
 export default function UpgradePage() {
-    const { data: session, update: updateSession } = useSession();
+    const { data: session, status, update: updateSession } = useSession();
+    const [pageReady, setPageReady] = useState(false);
     const [loading, setLoading] = useState<string | null>(null);
     const [annualBilling, setAnnualBilling] = useState(true);
     const [successMessage, setSuccessMessage] = useState<string | null>(null);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
     const [currentBillingCycle, setCurrentBillingCycle] = useState<'monthly' | 'yearly' | null>(null);
+
     const searchParams = useSearchParams();
     const router = useRouter();
 
-    // Fetch current subscription details when component mounts
     useEffect(() => {
         const fetchSubscriptionDetails = async () => {
-            if (session?.user) {
+            if (status === 'authenticated') {
                 try {
                     const response = await fetch('/api/payment/check-status');
                     if (response.ok) {
                         const data = await response.json();
-
-                        // Set the current billing cycle based on the subscription details
                         if (data.subscription && data.subscription.interval) {
-                            setCurrentBillingCycle(
-                                data.subscription.interval === 'year' ? 'yearly' : 'monthly'
-                            );
+                            setCurrentBillingCycle(data.subscription.interval === 'year' ? 'yearly' : 'monthly');
                         }
                     }
                 } catch (error) {
                     console.error('Error fetching subscription details:', error);
+                } finally {
+                    setPageReady(true);
                 }
             }
         };
 
         fetchSubscriptionDetails();
-    }, [session]);
+    }, [status]);
 
-    // Check for success/cancel from Stripe when component mounts
     useEffect(() => {
         const handleCheckoutResult = async () => {
             const success = searchParams.get('success');
@@ -53,35 +52,24 @@ export default function UpgradePage() {
                 try {
                     setLoading('checking-status');
 
-                    // Fetch the latest subscription status from the server
                     const response = await fetch('/api/payment/check-status', {
                         method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
+                        headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ sessionId }),
                     });
 
                     const data = await response.json();
 
                     if (response.ok && data.success) {
-                        // ✅ Correctly refresh the session
                         await updateSession();
-                        router.refresh(); // (Optional) Refresh the page too!
+                        router.refresh();
 
-                        // ✅ Set billing cycle from response
                         if (data.subscription && data.subscription.interval) {
-                            setCurrentBillingCycle(
-                                data.subscription.interval === 'year' ? 'yearly' : 'monthly'
-                            );
+                            setCurrentBillingCycle(data.subscription.interval === 'year' ? 'yearly' : 'monthly');
                         }
 
-                        // ✅ Show success message
-                        setSuccessMessage(
-                            `Your subscription was successfully activated! You are now on the ${data.tier.charAt(0).toUpperCase() + data.tier.slice(1)} plan.`
-                        );
+                        setSuccessMessage(`Your subscription was successfully activated! You are now on the ${data.tier.charAt(0).toUpperCase() + data.tier.slice(1)} plan.`);
 
-                        // Clear URL parameters
                         const url = new URL(window.location.href);
                         url.searchParams.delete('success');
                         url.searchParams.delete('session_id');
@@ -97,8 +85,6 @@ export default function UpgradePage() {
                 }
             } else if (canceled) {
                 setErrorMessage('Your subscription upgrade was canceled. You can try again when you are ready.');
-
-                // Clear the URL parameters
                 const url = new URL(window.location.href);
                 url.searchParams.delete('canceled');
                 window.history.replaceState({}, '', url);
@@ -110,7 +96,6 @@ export default function UpgradePage() {
 
     const handleUpgrade = async (planName: string) => {
         if (!session?.user) {
-            // Redirect to login
             router.push('/login');
             return;
         }
@@ -130,9 +115,7 @@ export default function UpgradePage() {
 
             const response = await fetch('/api/payment/create-checkout', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     priceId,
                     billingInterval: annualBilling ? 'yearly' : 'monthly',
@@ -141,17 +124,11 @@ export default function UpgradePage() {
 
             const data = await response.json();
 
-            if (!response.ok) {
-                console.error('Failed to create checkout session:', data);
-                setErrorMessage(`Error: ${data.error || 'Failed to create checkout session'}`);
-                return;
-            }
-
-            if (data.url) {
+            if (response.ok && data.url) {
                 window.location.href = data.url;
             } else {
-                console.error('No checkout URL returned');
-                setErrorMessage('Failed to create checkout session - No URL returned');
+                console.error('Failed to create checkout session:', data);
+                setErrorMessage(data.error || 'Failed to create checkout session');
             }
         } catch (error) {
             console.error('Error:', error);
@@ -161,10 +138,8 @@ export default function UpgradePage() {
         }
     };
 
-    // Get current plan from session
     const userTier = session?.user?.tier || 'free';
 
-    // Create plans array from SUBSCRIPTION_PLANS
     const plans = [
         {
             name: 'Free',
@@ -189,9 +164,13 @@ export default function UpgradePage() {
         },
     ];
 
+    if (status === 'loading' || !pageReady) {
+        return <Loading message="Loading your subscription..." />;
+    }
+
     return (
         <div className="flex min-h-screen bg-white dark:bg-gray-900 transition-colors">
-            <main className={`flex-1 ${session ? '' : ''}`}>
+            <main className="flex-1">
                 <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8 py-12">
                     <div className="text-center mb-10">
                         <h1 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-3">
@@ -202,7 +181,7 @@ export default function UpgradePage() {
                         </p>
                     </div>
 
-                    {/* Success/Error messages */}
+                    {/* Success/Error Messages */}
                     {successMessage && (
                         <div className="mb-8 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4 flex items-start">
                             <CheckCircle2 className="h-5 w-5 text-green-500 dark:text-green-400 mr-3 flex-shrink-0 mt-0.5" />
@@ -221,17 +200,7 @@ export default function UpgradePage() {
                         </div>
                     )}
 
-                    {/* Loading indicator for subscription check */}
-                    {loading === 'checking-status' && (
-                        <div className="mb-8 flex justify-center">
-                            <div className="inline-flex items-center px-4 py-2 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-lg">
-                                <div className="w-5 h-5 border-2 border-blue-600 dark:border-blue-400 border-t-transparent rounded-full animate-spin mr-2"></div>
-                                Verifying your subscription...
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Billing toggle */}
+                    {/* Plans */}
                     <div className="flex justify-center mb-12">
                         <div className="bg-gray-100 dark:bg-gray-800 p-1 rounded-lg inline-flex items-center">
                             <button
@@ -255,11 +224,8 @@ export default function UpgradePage() {
                         </div>
                     </div>
 
-                    {/* Plans */}
                     <div className="grid md:grid-cols-3 gap-8">
                         {plans.map((plan) => {
-                            // Check if this is the user's current plan
-                            // Now also check if the billing cycle matches
                             const isCurrentPlan =
                                 (plan.name.toLowerCase() === userTier) &&
                                 (plan.name === 'Free' ||
@@ -296,15 +262,7 @@ export default function UpgradePage() {
                                                     </span>
                                                 </div>
                                             )}
-
-                                            {plan.name === 'Pro' && annualBilling && (
-                                                <div className="flex items-center mt-2 text-sm text-gray-600 dark:text-gray-400">
-                                                    <Info className="h-4 w-4 mr-1" />
-                                                    Pay annually to save 10%
-                                                </div>
-                                            )}
-
-                                            {plan.name === 'Max' && annualBilling && (
+                                            {(plan.name === 'Pro' || plan.name === 'Max') && annualBilling && (
                                                 <div className="flex items-center mt-2 text-sm text-gray-600 dark:text-gray-400">
                                                     <Info className="h-4 w-4 mr-1" />
                                                     Pay annually to save 10%
@@ -317,22 +275,16 @@ export default function UpgradePage() {
                                             disabled={loading === plan.name || isCurrentPlan}
                                             className={`w-full py-3 px-4 rounded-xl font-medium flex items-center justify-center transition-colors ${isCurrentPlan
                                                 ? 'bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 cursor-not-allowed'
-                                                : plan.name === 'Free'
-                                                    ? 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600'
-                                                    : plan.popular
-                                                        ? 'bg-[#E99947] hover:bg-[#FF9B3B] text-white'
-                                                        : 'bg-gray-900 dark:bg-gray-800 hover:bg-black dark:hover:bg-gray-700 text-white'
+                                                : plan.popular
+                                                    ? 'bg-[#E99947] hover:bg-[#FF9B3B] text-white'
+                                                    : 'bg-gray-900 dark:bg-gray-800 hover:bg-black dark:hover:bg-gray-700 text-white'
                                                 } ${loading === plan.name ? 'opacity-50 cursor-not-allowed' : ''}`}
                                         >
                                             {loading === plan.name ? (
                                                 <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                                             ) : (
                                                 <>
-                                                    {isCurrentPlan
-                                                        ? 'Current Plan'
-                                                        : plan.name === 'Free'
-                                                            ? 'Switch to Free'
-                                                            : `Get ${plan.name} Plan`}
+                                                    {isCurrentPlan ? 'Current Plan' : plan.name === 'Free' ? 'Switch to Free' : `Get ${plan.name} Plan`}
                                                     {!isCurrentPlan && plan.name !== 'Free' && <ArrowRight className="ml-2 h-4 w-4" />}
                                                 </>
                                             )}
@@ -341,11 +293,11 @@ export default function UpgradePage() {
 
                                     <div className="border-t border-gray-100 dark:border-gray-700 p-6">
                                         <h3 className="font-medium text-gray-900 dark:text-white mb-4">
-                                            {plan.name === 'Free' ? 'What\'s included:' : `Everything in ${plan.name === 'Pro' ? 'Free' : 'Pro'}, plus:`}
+                                            {plan.name === 'Free' ? "What's included:" : `Everything in ${plan.name === 'Pro' ? 'Free' : 'Pro'}, plus:`}
                                         </h3>
                                         <ul className="space-y-3">
-                                            {plan.features.map((feature, index) => (
-                                                <li key={index} className="flex">
+                                            {plan.features.map((feature, idx) => (
+                                                <li key={idx} className="flex">
                                                     <CheckCircle2 className="h-5 w-5 text-[#E99947] flex-shrink-0 mr-3" />
                                                     <span className="text-gray-700 dark:text-gray-300">{feature}</span>
                                                 </li>
@@ -360,7 +312,10 @@ export default function UpgradePage() {
                     <div className="mt-12 text-center text-gray-600 dark:text-gray-400 text-sm">
                         <p>Prices shown do not include applicable tax. Usage limits may apply.</p>
                         <p className="mt-2">
-                            Need a custom plan? <Link href="/contact" className="text-[#FFAB5B] hover:text-[#FF9B3B] font-medium">Contact us</Link>
+                            Need a custom plan?{' '}
+                            <Link href="/contact" className="text-[#FFAB5B] hover:text-[#FF9B3B] font-medium">
+                                Contact us
+                            </Link>
                         </p>
                     </div>
                 </div>
