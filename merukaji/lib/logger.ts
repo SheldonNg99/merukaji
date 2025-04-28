@@ -1,6 +1,5 @@
 type LogLevel = 'DEBUG' | 'INFO' | 'WARN' | 'ERROR';
 
-// Define a more specific type instead of using 'any'
 interface LogData {
     [key: string]: string | number | boolean | null | undefined | Date |
     Record<string, unknown> | Array<unknown> | Error;
@@ -13,14 +12,9 @@ const LOG_LEVELS: Record<LogLevel, number> = {
     'ERROR': 3
 };
 
-// Default to INFO in production, DEBUG in development
 const CURRENT_LOG_LEVEL = process.env.NODE_ENV === 'production' ? 'INFO' : 'DEBUG';
 
-/**
- * Simple logger function that outputs structured logs
- */
 export function log(level: LogLevel, message: string, data: LogData = {}) {
-    // Skip logging if level is below current log level
     if (LOG_LEVELS[level] < LOG_LEVELS[CURRENT_LOG_LEVEL as LogLevel]) {
         return;
     }
@@ -50,7 +44,6 @@ export function log(level: LogLevel, message: string, data: LogData = {}) {
     }
 }
 
-// Convenience methods
 export const logger = {
     debug: (message: string, data?: LogData) => log('DEBUG', message, data),
     info: (message: string, data?: LogData) => log('INFO', message, data),

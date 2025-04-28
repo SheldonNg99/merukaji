@@ -3,9 +3,14 @@ import GoogleProvider from "next-auth/providers/google";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { MongoDBAdapter } from "@auth/mongodb-adapter";
 import clientPromise from "@/lib/mongodb";
-import bcrypt from "bcryptjs";
-import { JWT } from "next-auth/jwt";
-import { Session } from "next-auth";
+import { compare } from "bcryptjs";
+
+// Helper: Get user by email
+async function getUserByEmail(email: string) {
+    const client = await clientPromise;
+    const db = client.db();
+    return await db.collection('users').findOne({ email });
+}
 
 export const authOptions: AuthOptions = {
     adapter: MongoDBAdapter(clientPromise),
@@ -15,69 +20,82 @@ export const authOptions: AuthOptions = {
             clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
         }),
         CredentialsProvider({
-            name: "credentials",
+            name: "Credentials",
             credentials: {
                 email: { label: "Email", type: "email" },
                 password: { label: "Password", type: "password" },
             },
             async authorize(credentials) {
                 if (!credentials?.email || !credentials?.password) {
-                    throw new Error("Email and password required");
+                    throw new Error("Email and password are required");
                 }
 
-                const client = await clientPromise;
-                const db = client.db();
-                const user = await db.collection("users").findOne({ email: credentials.email });
-
-                if (!user || !user.password) {
-                    throw new Error("No user found with this email");
+                const user = await getUserByEmail(credentials.email);
+                if (!user) {
+                    throw new Error("No user found");
                 }
 
-                const isPasswordValid = await bcrypt.compare(credentials.password, user.password);
-
-                if (!isPasswordValid) {
+                const isValid = await compare(credentials.password, user.password);
+                if (!isValid) {
                     throw new Error("Invalid password");
                 }
 
-                // Return user object with required fields
                 return {
                     id: user._id.toString(),
                     email: user.email,
-                    name: user.name || "",
-                    tier: user.tier || "free"
+                    name: user.name,
+                    tier: user.tier || 'free',
                 };
             },
         }),
     ],
     callbacks: {
-        // Fix JWT callback to include user data
+        async signIn({ user, account }) {
+            if (account?.provider === 'google') {
+                const client = await clientPromise;
+                const db = client.db();
+
+                const existingUser = await db.collection('users').findOne({ email: user.email });
+
+                if (!existingUser) {
+                    // If no user exists, create one
+                    await db.collection('users').insertOne({
+                        email: user.email,
+                        name: user.name,
+                        tier: 'free',  // default new user tier
+                        createdAt: new Date(),
+                    });
+                }
+            }
+            return true;
+        },
         async jwt({ token, user }) {
             if (user) {
-                // Use type assertion to handle the TypeScript error
                 token.id = user.id as string;
                 token.email = user.email as string;
                 token.name = user.name as string;
-                token.tier = (user.tier as string) || "free";
+                token.tier = (user.tier as string) || 'free';
             }
             return token;
         },
-        // Fix session callback to use token data
-        async session({ session, token }: { session: Session; token: JWT }) {
+        async session({ session, token }) {
             if (session.user) {
                 session.user.id = token.id as string;
-                session.user.tier = (token.tier as string) || "free";
+                session.user.tier = (token.tier as string) || 'free';
+                session.user.email = token.email as string;
+                session.user.name = token.name as string;
             }
             return session;
         },
     },
     pages: {
-        signIn: "/login",
-        error: "/login",
+        signIn: '/login',
+        error: '/login',
     },
     session: {
-        strategy: "jwt", // This is important for credentials provider
+        strategy: "jwt",
     },
-    secret: process.env.NEXTAUTH_SECRET, // Make sure this is set in your .env
+    secret: process.env.NEXTAUTH_SECRET,
 };
 
 const handler = NextAuth(authOptions);

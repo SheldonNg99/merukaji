@@ -3,32 +3,115 @@
 import { useState, useEffect } from 'react';
 import { CheckCircle2, Info, ArrowRight } from 'lucide-react';
 import { useSession } from 'next-auth/react';
-import { useSearchParams } from 'next/navigation';
-import { SUBSCRIPTION_PLANS, PRICE_IDS } from '@/lib/stripe';
+import { useSearchParams, useRouter } from 'next/navigation';
+import { SUBSCRIPTION_PLANS, PRICE_IDS } from '@/lib/stripe-client';
 import Link from 'next/link';
 
 export default function UpgradePage() {
-    const { data: session } = useSession();
+    const { data: session, update: updateSession } = useSession();
     const [loading, setLoading] = useState<string | null>(null);
     const [annualBilling, setAnnualBilling] = useState(true);
+    const [successMessage, setSuccessMessage] = useState<string | null>(null);
+    const [errorMessage, setErrorMessage] = useState<string | null>(null);
+    const [currentBillingCycle, setCurrentBillingCycle] = useState<'monthly' | 'yearly' | null>(null);
     const searchParams = useSearchParams();
+    const router = useRouter();
 
+    // Fetch current subscription details when component mounts
     useEffect(() => {
-        // Check for success/cancel from Stripe
-        if (searchParams.get('success')) {
-            // Handle successful payment
-            // You might want to show a success message or redirect
-        }
-        if (searchParams.get('canceled')) {
-            // Handle canceled payment
-            // You might want to show a message that payment was canceled
-        }
-    }, [searchParams]);
+        const fetchSubscriptionDetails = async () => {
+            if (session?.user) {
+                try {
+                    const response = await fetch('/api/payment/check-status');
+                    if (response.ok) {
+                        const data = await response.json();
+
+                        // Set the current billing cycle based on the subscription details
+                        if (data.subscription && data.subscription.interval) {
+                            setCurrentBillingCycle(
+                                data.subscription.interval === 'year' ? 'yearly' : 'monthly'
+                            );
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error fetching subscription details:', error);
+                }
+            }
+        };
+
+        fetchSubscriptionDetails();
+    }, [session]);
+
+    // Check for success/cancel from Stripe when component mounts
+    useEffect(() => {
+        const handleCheckoutResult = async () => {
+            const success = searchParams.get('success');
+            const canceled = searchParams.get('canceled');
+            const sessionId = searchParams.get('session_id');
+
+            if (success && sessionId) {
+                try {
+                    setLoading('checking-status');
+
+                    // Fetch the latest subscription status from the server
+                    const response = await fetch('/api/payment/check-status', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ sessionId }),
+                    });
+
+                    const data = await response.json();
+
+                    if (response.ok && data.success) {
+                        // ✅ Correctly refresh the session
+                        await updateSession();
+                        router.refresh(); // (Optional) Refresh the page too!
+
+                        // ✅ Set billing cycle from response
+                        if (data.subscription && data.subscription.interval) {
+                            setCurrentBillingCycle(
+                                data.subscription.interval === 'year' ? 'yearly' : 'monthly'
+                            );
+                        }
+
+                        // ✅ Show success message
+                        setSuccessMessage(
+                            `Your subscription was successfully activated! You are now on the ${data.tier.charAt(0).toUpperCase() + data.tier.slice(1)} plan.`
+                        );
+
+                        // Clear URL parameters
+                        const url = new URL(window.location.href);
+                        url.searchParams.delete('success');
+                        url.searchParams.delete('session_id');
+                        window.history.replaceState({}, '', url);
+                    } else {
+                        setErrorMessage(data.error || 'Failed to verify subscription status. Please contact support.');
+                    }
+                } catch (error) {
+                    console.error('Error checking subscription status:', error);
+                    setErrorMessage('An unexpected error occurred. Please contact support.');
+                } finally {
+                    setLoading(null);
+                }
+            } else if (canceled) {
+                setErrorMessage('Your subscription upgrade was canceled. You can try again when you are ready.');
+
+                // Clear the URL parameters
+                const url = new URL(window.location.href);
+                url.searchParams.delete('canceled');
+                window.history.replaceState({}, '', url);
+            }
+        };
+
+        handleCheckoutResult();
+    }, [searchParams, updateSession, router]);
 
     const handleUpgrade = async (planName: string) => {
         if (!session?.user) {
             // Redirect to login
-            window.location.href = '/login';
+            router.push('/login');
             return;
         }
 
@@ -56,20 +139,30 @@ export default function UpgradePage() {
                 }),
             });
 
-            const { url } = await response.json();
+            const data = await response.json();
 
-            if (url) {
-                window.location.href = url;
+            if (!response.ok) {
+                console.error('Failed to create checkout session:', data);
+                setErrorMessage(`Error: ${data.error || 'Failed to create checkout session'}`);
+                return;
+            }
+
+            if (data.url) {
+                window.location.href = data.url;
             } else {
-                // Handle error
-                console.error('Failed to create checkout session');
+                console.error('No checkout URL returned');
+                setErrorMessage('Failed to create checkout session - No URL returned');
             }
         } catch (error) {
             console.error('Error:', error);
+            setErrorMessage('An unexpected error occurred. Please try again.');
         } finally {
             setLoading(null);
         }
     };
+
+    // Get current plan from session
+    const userTier = session?.user?.tier || 'free';
 
     // Create plans array from SUBSCRIPTION_PLANS
     const plans = [
@@ -109,6 +202,35 @@ export default function UpgradePage() {
                         </p>
                     </div>
 
+                    {/* Success/Error messages */}
+                    {successMessage && (
+                        <div className="mb-8 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4 flex items-start">
+                            <CheckCircle2 className="h-5 w-5 text-green-500 dark:text-green-400 mr-3 flex-shrink-0 mt-0.5" />
+                            <div>
+                                <p className="text-green-700 dark:text-green-300 font-medium">{successMessage}</p>
+                                <p className="mt-1 text-sm text-green-600 dark:text-green-400">
+                                    Your changes will be reflected in your account immediately.
+                                </p>
+                            </div>
+                        </div>
+                    )}
+
+                    {errorMessage && (
+                        <div className="mb-8 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+                            <p className="text-red-700 dark:text-red-300 font-medium">{errorMessage}</p>
+                        </div>
+                    )}
+
+                    {/* Loading indicator for subscription check */}
+                    {loading === 'checking-status' && (
+                        <div className="mb-8 flex justify-center">
+                            <div className="inline-flex items-center px-4 py-2 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-lg">
+                                <div className="w-5 h-5 border-2 border-blue-600 dark:border-blue-400 border-t-transparent rounded-full animate-spin mr-2"></div>
+                                Verifying your subscription...
+                            </div>
+                        </div>
+                    )}
+
                     {/* Billing toggle */}
                     <div className="flex justify-center mb-12">
                         <div className="bg-gray-100 dark:bg-gray-800 p-1 rounded-lg inline-flex items-center">
@@ -135,83 +257,104 @@ export default function UpgradePage() {
 
                     {/* Plans */}
                     <div className="grid md:grid-cols-3 gap-8">
-                        {plans.map((plan) => (
-                            <div
-                                key={plan.name}
-                                className={`bg-white dark:bg-gray-800 rounded-xl overflow-hidden border ${plan.popular
-                                    ? 'border-[#FFAB5B] shadow-lg'
-                                    : 'border-gray-200 dark:border-gray-700'
-                                    }`}
-                            >
-                                {plan.popular && (
-                                    <div className="bg-[#FFAB5B] text-white text-sm font-medium py-1 text-center">
-                                        Most Popular
-                                    </div>
-                                )}
-                                <div className="p-6">
-                                    <div className="mb-5">
-                                        <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-1">{plan.name}</h2>
-                                        <p className="text-gray-600 dark:text-gray-400">{plan.description}</p>
+                        {plans.map((plan) => {
+                            // Check if this is the user's current plan
+                            // Now also check if the billing cycle matches
+                            const isCurrentPlan =
+                                (plan.name.toLowerCase() === userTier) &&
+                                (plan.name === 'Free' ||
+                                    (annualBilling && currentBillingCycle === 'yearly') ||
+                                    (!annualBilling && currentBillingCycle === 'monthly'));
+
+                            return (
+                                <div
+                                    key={plan.name}
+                                    className={`bg-white dark:bg-gray-800 rounded-xl overflow-hidden border ${plan.popular
+                                        ? 'border-[#FFAB5B] shadow-lg'
+                                        : 'border-gray-200 dark:border-gray-700'
+                                        } ${isCurrentPlan ? 'ring-2 ring-[#FFAB5B]' : ''}`}
+                                >
+                                    {plan.popular && (
+                                        <div className="bg-[#FFAB5B] text-white text-sm font-medium py-1 text-center">
+                                            Most Popular
+                                        </div>
+                                    )}
+                                    <div className="p-6">
+                                        <div className="mb-5">
+                                            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-1">{plan.name}</h2>
+                                            <p className="text-gray-600 dark:text-gray-400">{plan.description}</p>
+                                        </div>
+
+                                        <div className="mb-6">
+                                            {plan.price === 0 ? (
+                                                <div className="text-3xl font-bold text-gray-900 dark:text-white">Free</div>
+                                            ) : (
+                                                <div className="flex items-baseline">
+                                                    <span className="text-3xl font-bold text-gray-900 dark:text-white">USD {plan.price}</span>
+                                                    <span className="text-gray-600 dark:text-gray-400 ml-2 text-sm">
+                                                        / month {annualBilling ? 'billed annually' : ''}
+                                                    </span>
+                                                </div>
+                                            )}
+
+                                            {plan.name === 'Pro' && annualBilling && (
+                                                <div className="flex items-center mt-2 text-sm text-gray-600 dark:text-gray-400">
+                                                    <Info className="h-4 w-4 mr-1" />
+                                                    Pay annually to save 10%
+                                                </div>
+                                            )}
+
+                                            {plan.name === 'Max' && annualBilling && (
+                                                <div className="flex items-center mt-2 text-sm text-gray-600 dark:text-gray-400">
+                                                    <Info className="h-4 w-4 mr-1" />
+                                                    Pay annually to save 10%
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        <button
+                                            onClick={() => handleUpgrade(plan.name)}
+                                            disabled={loading === plan.name || isCurrentPlan}
+                                            className={`w-full py-3 px-4 rounded-xl font-medium flex items-center justify-center transition-colors ${isCurrentPlan
+                                                ? 'bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 cursor-not-allowed'
+                                                : plan.name === 'Free'
+                                                    ? 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600'
+                                                    : plan.popular
+                                                        ? 'bg-[#E99947] hover:bg-[#FF9B3B] text-white'
+                                                        : 'bg-gray-900 dark:bg-gray-800 hover:bg-black dark:hover:bg-gray-700 text-white'
+                                                } ${loading === plan.name ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                        >
+                                            {loading === plan.name ? (
+                                                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                            ) : (
+                                                <>
+                                                    {isCurrentPlan
+                                                        ? 'Current Plan'
+                                                        : plan.name === 'Free'
+                                                            ? 'Switch to Free'
+                                                            : `Get ${plan.name} Plan`}
+                                                    {!isCurrentPlan && plan.name !== 'Free' && <ArrowRight className="ml-2 h-4 w-4" />}
+                                                </>
+                                            )}
+                                        </button>
                                     </div>
 
-                                    <div className="mb-6">
-                                        {plan.price === 0 ? (
-                                            <div className="text-3xl font-bold text-gray-900 dark:text-white">Free</div>
-                                        ) : (
-                                            <div className="flex items-baseline">
-                                                <span className="text-3xl font-bold text-gray-900 dark:text-white">USD {plan.price}</span>
-                                                <span className="text-gray-600 dark:text-gray-400 ml-2 text-sm">
-                                                    / month {annualBilling ? 'billed annually' : ''}
-                                                </span>
-                                            </div>
-                                        )}
-
-                                        {plan.name === 'Pro' && annualBilling && (
-                                            <div className="flex items-center mt-2 text-sm text-gray-600 dark:text-gray-400">
-                                                <Info className="h-4 w-4 mr-1" />
-                                                Pay annually to save 10%
-                                            </div>
-                                        )}
+                                    <div className="border-t border-gray-100 dark:border-gray-700 p-6">
+                                        <h3 className="font-medium text-gray-900 dark:text-white mb-4">
+                                            {plan.name === 'Free' ? 'What\'s included:' : `Everything in ${plan.name === 'Pro' ? 'Free' : 'Pro'}, plus:`}
+                                        </h3>
+                                        <ul className="space-y-3">
+                                            {plan.features.map((feature, index) => (
+                                                <li key={index} className="flex">
+                                                    <CheckCircle2 className="h-5 w-5 text-[#E99947] flex-shrink-0 mr-3" />
+                                                    <span className="text-gray-700 dark:text-gray-300">{feature}</span>
+                                                </li>
+                                            ))}
+                                        </ul>
                                     </div>
-
-                                    <button
-                                        onClick={() => handleUpgrade(plan.name)}
-                                        disabled={loading === plan.name}
-                                        className={`w-full py-3 px-4 rounded-xl font-medium flex items-center justify-center transition-colors ${plan.name === 'Free'
-                                            ? 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600'
-                                            : plan.popular
-                                                ? 'bg-[#E99947] hover:bg-[#FF9B3B] text-white'
-                                                : 'bg-gray-900 dark:bg-gray-800 hover:bg-black dark:hover:bg-gray-700 text-white'
-                                            } ${loading === plan.name ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                    >
-                                        {loading === plan.name ? (
-                                            <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                                        ) : (
-                                            <>
-                                                {plan.name === 'Free'
-                                                    ? 'Current Plan'
-                                                    : `Get ${plan.name} Plan`}
-                                                {plan.name !== 'Free' && <ArrowRight className="ml-2 h-4 w-4" />}
-                                            </>
-                                        )}
-                                    </button>
                                 </div>
-
-                                <div className="border-t border-gray-100 dark:border-gray-700 p-6">
-                                    <h3 className="font-medium text-gray-900 dark:text-white mb-4">
-                                        {plan.name === 'Free' ? 'What\'s included:' : `Everything in ${plan.name === 'Pro' ? 'Free' : 'Pro'}, plus:`}
-                                    </h3>
-                                    <ul className="space-y-3">
-                                        {plan.features.map((feature, index) => (
-                                            <li key={index} className="flex">
-                                                <CheckCircle2 className="h-5 w-5 text-[#E99947] flex-shrink-0 mr-3" />
-                                                <span className="text-gray-700 dark:text-gray-300">{feature}</span>
-                                            </li>
-                                        ))}
-                                    </ul>
-                                </div>
-                            </div>
-                        ))}
+                            );
+                        })}
                     </div>
 
                     <div className="mt-12 text-center text-gray-600 dark:text-gray-400 text-sm">
