@@ -82,7 +82,7 @@ const SummaryResultsPage = ({ summary, metadata, timestamp, provider }: SummaryR
     }
 
     return (
-        <div className="w-full min-h-screen bg-gray-50 dark:bg-gray-800 py-8">
+        <div className="w-full min-h-screen bg-[#fffefe] dark:bg-gray-800 py-8">
             <div className="w-full max-w-4xl mx-auto px-4">
                 {/* New Summary Button */}
                 <div className="mb-6 flex justify-end">

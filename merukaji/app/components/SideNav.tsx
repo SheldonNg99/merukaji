@@ -82,7 +82,7 @@ export default function SideNav({ isDesktopSidebarOpen, onDesktopSidebarChange }
             `}>
                 {/* Header with Toggle Buttons */}
                 <div className={`h-16 flex items-center border-b border-gray-200 dark:border-gray-700 bg-[#f8faff] dark:bg-gray-900/50 ${isMobileOpen ? 'p-4' : ''}`}>
-                    <div className={`flex items-center w-full ${!isDesktopSidebarOpen ? 'lg:justify-center' : ''}`}>
+                    <div className={`flex items-center w-full ${!isDesktopSidebarOpen ? 'lg:justify-center' : 'px-4'}`}>
                         {/* Mobile Toggle */}
                         <button
                             onClick={() => setIsMobileOpen(false)}

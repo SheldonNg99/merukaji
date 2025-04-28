@@ -169,7 +169,7 @@ export default function UpgradePage() {
     }
 
     return (
-        <div className="flex min-h-screen bg-white dark:bg-gray-900 transition-colors">
+        <div className="flex min-h-screen bg-[#fffefe] dark:bg-gray-900 transition-colors">
             <main className="flex-1">
                 <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8 py-12">
                     <div className="text-center mb-10">

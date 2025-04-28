@@ -22,7 +22,7 @@ export default function SettingsPage() {
     };
 
     return (
-        <div className="w-full min-h-screen bg-gray-50 dark:bg-gray-800 ">
+        <div className="w-full min-h-screen bg-[#fffefe] dark:bg-gray-800 ">
             <div className="max-w-5xl mx-auto py-16">
                 <h1 className="text-2xl font-medium mb-6 text-gray-900 dark:text-white">Settings</h1>
                 <div className="flex flex-col lg:flex-row gap-8">
