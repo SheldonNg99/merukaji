@@ -50,7 +50,7 @@ export default function SettingsPage() {
         try {
             setIsSaving(true);
 
-            const response = await fetch('/api/user/settings', {
+            const response = await fetch('/api/settings/user', {
                 method: 'PATCH',
                 headers: {
                     'Content-Type': 'application/json',
