@@ -2,11 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '../auth/[...nextauth]/route';
 import { extractVideoId, getVideoTranscript, getVideoMetadata } from '@/lib/youtube';
-import { processTranscriptSegments, formatSummary } from '@/lib/textProcessing';
+import { convertTranscriptToParagraphs, formatSummary } from '@/lib/textProcessing';
 import { checkRateLimit, recordUsage } from '@/lib/rateLimiter';
 import { generateSummaryWithFallback } from '@/lib/fallbackMechanisms';
+import { getCachedSummary, cacheSummary } from '@/lib/summaryCache';
 import { logger } from '@/lib/logger';
-import clientPromise from '@/lib/mongodb';
 
 export async function POST(req: NextRequest) {
     const requestId = crypto.randomUUID();
@@ -69,48 +69,46 @@ export async function POST(req: NextRequest) {
 
         logger.debug('Processing video', { requestId, videoId, summaryType });
 
-        // 5. Get cached summary if available
-        const client = await clientPromise;
-        const db = client.db();
-
-        const cachedSummary = await db.collection('summaries').findOne({
-            videoId,
-            summaryType,
-            // Only return relatively recent summaries (last 7 days)
-            createdAt: { $gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) }
-        });
+        const cachedSummary = await getCachedSummary(videoId, summaryType, requestId);
 
         if (cachedSummary) {
-            logger.info('Returning cached summary', {
-                requestId,
-                videoId,
-                summaryAge: `${Math.round((Date.now() - cachedSummary.createdAt.getTime()) / (60 * 60 * 1000))} hours`
-            });
-
             // Still record usage for rate limiting
             await recordUsage(userId, videoId);
 
             return NextResponse.json({
                 success: true,
+                id: cachedSummary.id,
                 summary: cachedSummary.summary,
                 metadata: cachedSummary.metadata,
-                cached: true
+                provider: cachedSummary.provider,
+                timestamp: cachedSummary.timestamp,
+                cached: true,
+                limits: rateLimitCheck.remaining
             });
         }
 
         // 6. Get video metadata and transcript in parallel
         logger.debug('Fetching metadata and transcript', { requestId, videoId });
 
-        const [metadata, transcript] = await Promise.all([
+        const [metadata, transcriptSegments] = await Promise.all([
             getVideoMetadata(videoId),
             getVideoTranscript(videoId)
         ]);
 
-        // 7. Process transcript segments into a single text
-        const processedTranscript = processTranscriptSegments(transcript);
+        // 7. Process transcript into coherent paragraphs
+        const paragraphs = convertTranscriptToParagraphs(transcriptSegments);
+        const processedTranscript = paragraphs.join('\n\n');
+
+        // Log transcript processing stats
+        logger.debug('Transcript processed', {
+            requestId,
+            originalSegments: transcriptSegments.length,
+            paragraphs: paragraphs.length,
+            processedLength: processedTranscript.length
+        });
 
         // 8. Generate summary
-        const preferredProvider = userTier === 'max' ? 'openai' : 'gemini'; // Example of tier benefits
+        const preferredProvider = userTier === 'max' ? 'openai' : 'gemini';
 
         const summaryResult = await generateSummaryWithFallback(
             processedTranscript,
@@ -121,33 +119,37 @@ export async function POST(req: NextRequest) {
 
         const formattedSummary = formatSummary(summaryResult.summary);
 
-        // 9. Cache the result
-        await db.collection('summaries').insertOne({
-            userId,
-            videoId,
-            summaryType,
-            summary: formattedSummary,
-            metadata,
-            provider: summaryResult.provider,
-            createdAt: new Date()
-        });
+        // 9. Cache the result with better error handling
+        let insertedId: string | null = null;
+        try {
+            insertedId = await cacheSummary({
+                userId,
+                videoId,
+                summaryType,
+                summary: formattedSummary,
+                metadata,
+                provider: summaryResult.provider,
+            }, requestId);
+        } catch (cacheError) {
+            // Log cache error but continue - don't fail the request just because caching failed
+            logger.error('Failed to cache summary', {
+                requestId,
+                videoId,
+                error: cacheError instanceof Error ? cacheError.message : String(cacheError)
+            });
+        }
 
         // 10. Record usage for rate limiting
         await recordUsage(userId, videoId);
 
-        logger.info('Summary generated successfully', {
-            requestId,
-            videoId,
-            provider: summaryResult.provider,
-            summaryLength: formattedSummary.length
-        });
-
         // 11. Return result
         return NextResponse.json({
             success: true,
+            id: insertedId,
             summary: formattedSummary,
             metadata,
             provider: summaryResult.provider,
+            timestamp: new Date().toISOString(),
             limits: rateLimitCheck.remaining
         });
 

@@ -1,14 +1,72 @@
 // lib/textProcessing.ts
 
 /**
- * Process raw transcript segments into a single coherent text
+ * Convert raw transcript segments into coherent paragraphs
  */
-export function processTranscriptSegments(segments: Array<{ text: string, offset: number }>): string {
-    // Sort segments by offset if they're not already in order
-    const sortedSegments = [...segments].sort((a, b) => a.offset - b.offset);
+export function convertTranscriptToParagraphs(transcript: { text: string; offset: number }[]): string[] {
+    const paragraphs: string[] = [];
+    let currentParagraph = '';
+    let lastOffset = 0;
 
-    // Join all text together with spaces
-    return sortedSegments.map(segment => segment.text.trim()).join(' ');
+    for (let i = 0; i < transcript.length; i++) {
+        const segment = transcript[i];
+        const gap = segment.offset - lastOffset;
+        const nextSegment = transcript[i + 1];
+        const text = segment.text.trim();
+
+        // Start new paragraph if:
+        // 1. There's a significant pause (gap > 2 seconds)
+        // 2. Current segment ends with sentence-ending punctuation
+        // 3. Next segment starts with capital letter (likely new thought)
+        const shouldStartNewParagraph =
+            gap > 2 ||
+            /[.!?]$/.test(currentParagraph.trim()) ||
+            (nextSegment && /^[A-Z]/.test(nextSegment.text.trim()));
+
+        if (shouldStartNewParagraph && currentParagraph.trim()) {
+            paragraphs.push(currentParagraph.trim());
+            currentParagraph = text;
+        } else {
+            // Add space only if we're adding to existing content
+            currentParagraph += (currentParagraph ? ' ' : '') + text;
+        }
+
+        lastOffset = segment.offset;
+    }
+
+    // Add the final paragraph if there's content
+    if (currentParagraph.trim()) {
+        paragraphs.push(currentParagraph.trim());
+    }
+
+    // Additional cleanup: merge very short paragraphs
+    return mergeTooShortParagraphs(paragraphs);
+}
+
+/**
+ * Merge paragraphs that are too short (less than 100 characters)
+ * with the next paragraph if available
+ */
+function mergeTooShortParagraphs(paragraphs: string[], minLength: number = 100): string[] {
+    const merged: string[] = [];
+    let current = '';
+
+    for (const paragraph of paragraphs) {
+        if (current && current.length < minLength) {
+            current += ' ' + paragraph;
+        } else if (current) {
+            merged.push(current);
+            current = paragraph;
+        } else {
+            current = paragraph;
+        }
+    }
+
+    if (current) {
+        merged.push(current);
+    }
+
+    return merged;
 }
 
 /**
@@ -21,7 +79,22 @@ export function formatSummary(rawSummary: string): string {
         .replace(/^(here are the key points:?|key points:)/i, '')
         .trim();
 
-    return cleanSummary;
+    // Ensure proper spacing between sections
+    return cleanSummary
+        .replace(/\n{3,}/g, '\n\n') // Replace multiple newlines with double newline
+        .trim();
+}
+
+
+/**
+ * Process raw transcript segments into a single coherent text
+ */
+export function processTranscriptSegments(segments: Array<{ text: string, offset: number }>): string {
+    // Sort segments by offset if they're not already in order
+    const sortedSegments = [...segments].sort((a, b) => a.offset - b.offset);
+
+    // Join all text together with spaces
+    return sortedSegments.map(segment => segment.text.trim()).join(' ');
 }
 
 /**
