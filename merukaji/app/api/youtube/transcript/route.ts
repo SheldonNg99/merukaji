@@ -1,7 +1,6 @@
-// api/youtube/transcript/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import { authOptions } from '../../auth/[...nextauth]/route';
+import { authOptions } from '@/lib/authOptions';
 import { extractVideoId, getVideoTranscript, getVideoMetadata, cacheTranscript } from '@/lib/youtube';
 import { logger } from '@/lib/logger';
 

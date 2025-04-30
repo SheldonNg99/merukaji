@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import { authOptions } from '../auth/[...nextauth]/route';
+import { authOptions } from '@/lib/authOptions';
 import { extractVideoId, getVideoTranscript, getVideoMetadata } from '@/lib/youtube';
 import { convertTranscriptToParagraphs, formatSummary } from '@/lib/textProcessing';
 import { checkRateLimit, recordUsage } from '@/lib/rateLimiter';
