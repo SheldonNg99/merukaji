@@ -16,7 +16,6 @@ export default function SettingsPage() {
 
     const { showToast } = useToast();
 
-    // Load user data when component mounts
     useEffect(() => {
         const fetchUserData = async () => {
             try {
