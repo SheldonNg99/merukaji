@@ -8,4 +8,3 @@ export default function Loading({ message }: { message?: string }) {
         </div>
     );
 }
-

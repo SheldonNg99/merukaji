@@ -10,6 +10,13 @@ const nextConfig: NextConfig = {
       'yt3.ggpht.com',
     ],
   },
+  typescript: {
+    ignoreBuildErrors: false,
+  },
+  eslint: {
+    ignoreDuringBuilds: false,
+  },
+  output: 'standalone',
 };
 
 export default nextConfig;
