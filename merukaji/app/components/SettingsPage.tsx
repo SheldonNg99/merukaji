@@ -83,18 +83,18 @@ export default function SettingsPage() {
 
 
     return (
-        <div className="w-full min-h-screen bg-[#fffefe] dark:bg-gray-800 ">
+        <div className="w-full min-h-screen bg-[#fffefe] dark:bg-[#202120] ">
             <div className="max-w-5xl mx-auto py-16">
                 <h1 className="text-2xl font-medium mb-6 text-gray-900 dark:text-white">Settings</h1>
                 <div className="flex flex-col lg:flex-row gap-8">
                     {/* Settings tabs */}
                     <div className="w-full lg:w-64">
-                        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+                        <div className="bg-white dark:bg-[#2E2E2E] rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
                             <button
                                 onClick={() => setActiveTab('profile')}
                                 className={`w-full px-4 py-3.5 text-left transition-colors flex items-center gap-3 border-l-2 ${activeTab === 'profile'
                                     ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-400 border-l-orange-500 font-medium'
-                                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 border-l-transparent'
+                                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#383838] border-l-transparent'
                                     }`}
                             >
                                 <User className="h-4 w-4" />
@@ -104,7 +104,7 @@ export default function SettingsPage() {
                                 onClick={() => setActiveTab('billing')}
                                 className={`w-full px-4 py-3.5 text-left transition-colors flex items-center gap-3 border-l-2 ${activeTab === 'billing'
                                     ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-400 border-l-orange-500 font-medium'
-                                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 border-l-transparent'
+                                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#383838] border-l-transparent'
                                     }`}
                             >
                                 <CreditCard className="h-4 w-4" />
@@ -114,7 +114,7 @@ export default function SettingsPage() {
                                 onClick={() => setActiveTab('appearance')}
                                 className={`w-full px-4 py-3.5 text-left transition-colors flex items-center gap-3 border-l-2 ${activeTab === 'appearance'
                                     ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-400 border-l-orange-500 font-medium'
-                                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 border-l-transparent'
+                                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#383838] border-l-transparent'
                                     }`}
                             >
                                 {activeTab === 'appearance' ? (
@@ -130,7 +130,7 @@ export default function SettingsPage() {
                     {/* Main content area */}
                     <div className="flex-1">
                         {activeTab === 'profile' && (
-                            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+                            <div className="bg-white dark:bg-[#2E2E2E] rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
                                 <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-6">Your Profile</h2>
 
                                 {isLoading ? (
@@ -149,7 +149,7 @@ export default function SettingsPage() {
                                                     id="name"
                                                     value={name}
                                                     onChange={(e) => setName(e.target.value)}
-                                                    className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-400 dark:focus:ring-orange-500 focus:border-transparent transition-all text-gray-900 dark:text-white"
+                                                    className="w-full px-4 py-2.5 bg-gray-50 dark:bg-[#383838] border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-400 dark:focus:ring-orange-500 focus:border-transparent transition-all text-gray-900 dark:text-white"
                                                     placeholder="Enter your name"
                                                 />
                                             </div>
@@ -161,7 +161,7 @@ export default function SettingsPage() {
                                                 <input
                                                     type="email"
                                                     id="email"
-                                                    className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-400 dark:focus:ring-orange-500 focus:border-transparent transition-all text-gray-500 dark:text-gray-400"
+                                                    className="w-full px-4 py-2.5 bg-gray-50 dark:bg-[#383838] border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-400 dark:focus:ring-orange-500 focus:border-transparent transition-all text-gray-500 dark:text-gray-400"
                                                     value={userData?.email || ''}
                                                     disabled
                                                 />
@@ -177,7 +177,7 @@ export default function SettingsPage() {
                                                 id="bio"
                                                 value={bio}
                                                 onChange={(e) => setBio(e.target.value)}
-                                                className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-400 dark:focus:ring-orange-500 focus:border-transparent transition-all text-gray-900 dark:text-white"
+                                                className="w-full px-4 py-2.5 bg-gray-50 dark:bg-[#383838] border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-400 dark:focus:ring-orange-500 focus:border-transparent transition-all text-gray-900 dark:text-white"
                                                 rows={3}
                                                 placeholder="Tell us about yourself"
                                             />
@@ -198,7 +198,7 @@ export default function SettingsPage() {
                         )}
 
                         {activeTab === 'appearance' && (
-                            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+                            <div className="bg-white dark:bg-[#2E2E2E] rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
                                 <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-6">Appearance Settings</h2>
 
                                 <div className="space-y-6">
@@ -227,14 +227,14 @@ export default function SettingsPage() {
                         {activeTab === 'billing' && (
                             <div className="space-y-6">
                                 {/* Current Plan Card */}
-                                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+                                <div className="bg-white dark:bg-[#2E2E2E] rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
                                     <div className="p-6">
                                         <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Current Plan</h2>
 
                                         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                                             <div>
                                                 <div className="flex items-center gap-2 mb-2">
-                                                    <span className="inline-block px-2.5 py-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-xs font-medium rounded-full">
+                                                    <span className="inline-block px-2.5 py-1 bg-gray-100 dark:bg-[#383838] text-gray-700 dark:text-gray-300 text-xs font-medium rounded-full">
                                                         {userData?.tier ? `${userData.tier.charAt(0).toUpperCase() + userData.tier.slice(1)} Plan` : 'Free Plan'}
                                                     </span>
                                                     <span className="text-gray-500 dark:text-gray-400 text-sm">0 / 3 summaries used today</span>
@@ -282,10 +282,10 @@ export default function SettingsPage() {
                                 </div>
 
                                 {/* Payment Information Card */}
-                                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+                                <div className="bg-white dark:bg-[#2E2E2E] rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
                                     <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Payment Information</h2>
 
-                                    <div className="flex items-center justify-center h-32 bg-gray-50 dark:bg-gray-700 rounded-lg border border-dashed border-gray-300 dark:border-gray-600">
+                                    <div className="flex items-center justify-center h-32 bg-gray-50 dark:bg-[#383838] rounded-lg border border-dashed border-gray-300 dark:border-gray-600">
                                         <div className="text-center">
                                             <p className="text-gray-600 dark:text-gray-300 mb-1">No payment method on file</p>
                                             <p className="text-sm text-gray-500 dark:text-gray-400">
@@ -296,15 +296,15 @@ export default function SettingsPage() {
                                 </div>
 
                                 {/* Subscription Management Card */}
-                                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+                                <div className="bg-white dark:bg-[#2E2E2E] rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
                                     <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Subscription Management</h2>
 
-                                    <div className="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
+                                    <div className="p-4 bg-gray-50 dark:bg-[#383838] rounded-lg border border-gray-200 dark:border-gray-600">
                                         <p className="text-gray-600 dark:text-gray-300 mb-4">Your subscription renews automatically at the end of each billing period.</p>
 
                                         <button className="text-sm text-gray-400 dark:text-gray-500 cursor-not-allowed flex items-center gap-1" disabled>
                                             <span>Cancel subscription</span>
-                                            <span className="text-xs bg-gray-200 dark:bg-gray-600 text-gray-500 dark:text-gray-400 px-2 py-0.5 rounded-full">Free Plan</span>
+                                            <span className="text-xs bg-gray-200 dark:bg-[#2A2A2A] text-gray-500 dark:text-gray-400 px-2 py-0.5 rounded-full">Free Plan</span>
                                         </button>
                                     </div>
                                 </div>

@@ -82,13 +82,13 @@ const SummaryResultsPage = ({ summary, metadata, timestamp, provider }: SummaryR
     }
 
     return (
-        <div className="w-full min-h-screen bg-[#fffefe] dark:bg-gray-800 py-8">
+        <div className="w-full min-h-screen bg-[#fffefe] dark:bg-[#202120] py-8">
             <div className="w-full max-w-4xl mx-auto px-4">
                 {/* New Summary Button */}
                 <div className="mb-6 flex justify-end">
                     <button
                         onClick={handleNewSummary}
-                        className="inline-flex items-center px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg transition-colors"
+                        className="inline-flex items-center px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg transition-colors shadow-sm"
                     >
                         <Plus className="h-4 w-4 mr-2" />
                         New Summary
@@ -97,7 +97,7 @@ const SummaryResultsPage = ({ summary, metadata, timestamp, provider }: SummaryR
 
                 {/* Video metadata card */}
                 {metadata && (
-                    <div className="mb-8 bg-white dark:bg-gray-800 rounded-2xl overflow-hidden shadow-sm border border-gray-100 dark:border-gray-700">
+                    <div className="mb-8 bg-white dark:bg-[#2E2E2E] rounded-2xl overflow-hidden shadow-sm border border-gray-100 dark:border-gray-700">
                         <div className="flex flex-col md:flex-row">
                             {metadata.thumbnailUrl && (
                                 <div className="md:w-64 h-48 md:h-auto flex-shrink-0 relative overflow-hidden">
@@ -118,7 +118,7 @@ const SummaryResultsPage = ({ summary, metadata, timestamp, provider }: SummaryR
                                             {metadata.title}
                                         </h1>
                                         {metadata.channelTitle && (
-                                            <p className="text-gray-600 dark:text-gray-400 text-sm mb-2">
+                                            <p className="text-gray-600 dark:text-gray-300 text-sm mb-2">
                                                 {metadata.channelTitle}
                                             </p>
                                         )}
@@ -153,9 +153,9 @@ const SummaryResultsPage = ({ summary, metadata, timestamp, provider }: SummaryR
                 )}
 
                 {/* Summary content card */}
-                <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
+                <div className="bg-white dark:bg-[#2E2E2E] rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
                     {/* Summary actions bar */}
-                    <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center">
+                    <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-600 flex justify-between items-center">
                         <div className="text-sm font-medium text-gray-700 dark:text-gray-300">
                             Summary {currentPage} of {pagesCount}
                         </div>
@@ -164,7 +164,7 @@ const SummaryResultsPage = ({ summary, metadata, timestamp, provider }: SummaryR
                                 onClick={handleBookmark}
                                 className={`p-1.5 rounded-lg transition-colors ${bookmarked
                                     ? 'text-orange-500 bg-orange-50 dark:bg-orange-900/20'
-                                    : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
+                                    : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-[#383838]'
                                     }`}
                                 title={bookmarked ? "Bookmarked" : "Add to bookmarks"}
                             >
@@ -174,7 +174,7 @@ const SummaryResultsPage = ({ summary, metadata, timestamp, provider }: SummaryR
                                 onClick={handleCopy}
                                 className={`p-1.5 rounded-lg transition-colors ${copied
                                     ? 'text-green-500 bg-green-50 dark:bg-green-900/20'
-                                    : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
+                                    : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-[#383838]'
                                     }`}
                                 title={copied ? "Copied!" : "Copy summary"}
                             >
@@ -200,13 +200,13 @@ const SummaryResultsPage = ({ summary, metadata, timestamp, provider }: SummaryR
 
                     {/* Pagination controls */}
                     {pagesCount > 1 && (
-                        <div className="px-6 py-4 border-t border-gray-100 dark:border-gray-700 flex justify-between items-center">
+                        <div className="px-6 py-4 border-t border-gray-100 dark:border-gray-600 flex justify-between items-center">
                             <button
                                 onClick={prevPage}
                                 disabled={currentPage === 1}
                                 className={`flex items-center text-sm font-medium rounded-lg px-3 py-1.5 ${currentPage === 1
-                                    ? 'text-gray-400 dark:text-gray-600 cursor-not-allowed'
-                                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                                    ? 'text-gray-400 dark:text-gray-500 cursor-not-allowed'
+                                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-[#383838]'
                                     }`}
                             >
                                 <ChevronLeft className="h-4 w-4 mr-1" />
@@ -219,8 +219,8 @@ const SummaryResultsPage = ({ summary, metadata, timestamp, provider }: SummaryR
                                 onClick={nextPage}
                                 disabled={currentPage === pagesCount}
                                 className={`flex items-center text-sm font-medium rounded-lg px-3 py-1.5 ${currentPage === pagesCount
-                                    ? 'text-gray-400 dark:text-gray-600 cursor-not-allowed'
-                                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                                    ? 'text-gray-400 dark:text-gray-500 cursor-not-allowed'
+                                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-[#383838]'
                                     }`}
                             >
                                 Next
@@ -236,14 +236,14 @@ const SummaryResultsPage = ({ summary, metadata, timestamp, provider }: SummaryR
                         onClick={handleLike}
                         className={`flex items-center text-sm py-1.5 px-3 rounded-lg transition-colors ${liked
                             ? 'text-orange-500 bg-orange-50 dark:bg-orange-900/20'
-                            : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
+                            : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-[#383838]'
                             }`}
                     >
                         <ThumbsUp className="h-4 w-4 mr-1.5" />
                         <span>{liked ? 'Liked' : 'Like'}</span>
                     </button>
                     <button
-                        className="flex items-center text-sm text-gray-500 dark:text-gray-400 py-1.5 px-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
+                        className="flex items-center text-sm text-gray-500 dark:text-gray-400 py-1.5 px-3 rounded-lg hover:bg-gray-100 dark:hover:bg-[#383838]"
                     >
                         <Flag className="h-4 w-4 mr-1.5" />
                         <span>Report Issue</span>

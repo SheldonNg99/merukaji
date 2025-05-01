@@ -145,7 +145,7 @@ export default function HomePage() {
     // If we have summary data, show the results
     if (summaryData) {
         return (
-            <div className="w-full min-h-screen bg-gray-50 dark:bg-gray-800">
+            <div className="w-full min-h-screen bg-gray-50 dark:bg-[#202120]">
                 <SummaryResultsPage
                     summary={summaryData.summary}
                     metadata={summaryData.metadata}
@@ -158,21 +158,21 @@ export default function HomePage() {
 
     // Otherwise, show the search interface
     return (
-        <div className="w-full min-h-screen bg-[#fffefe] dark:bg-gray-800 flex flex-col items-center transition-colors">
+        <div className="w-full min-h-screen bg-[#fffefe] dark:bg-[#202120] flex flex-col items-center transition-colors">
             <div className="w-full max-w-4xl mx-auto px-4 flex flex-col items-center justify-center min-h-[80vh]">
                 {/* Welcome Message */}
                 <div className="text-center mb-12 animate-fade-in">
                     <h1 className="text-4xl md:text-5xl font-bold text-gray-800 dark:text-white mb-4">
                         Welcome Back!
                     </h1>
-                    <p className="text-gray-600 dark:text-gray-400 text-lg">
+                    <p className="text-gray-600 dark:text-gray-300 text-lg">
                         What would you like to summarize today?
                     </p>
                 </div>
 
                 {/* Search Section */}
                 <div className={`w-full max-w-2xl transition-all duration-300 ease-in-out ${isFocused ? 'scale-105' : 'scale-100'}`}>
-                    <div className="flex gap-3 bg-[#f2f5f6] dark:bg-gray-800 p-2 rounded-2xl shadow-md hover:shadow-lg transition-shadow duration-300">
+                    <div className="flex gap-3 bg-[#f2f5f6] dark:bg-[#2E2E2E] p-2 rounded-2xl shadow-md hover:shadow-lg transition-shadow duration-300 border border-transparent dark:border-gray-700">
                         {/* Search Input */}
                         <div className="flex-1">
                             <input
@@ -180,7 +180,7 @@ export default function HomePage() {
                                 value={youtubeUrl}
                                 onChange={(e) => setYoutubeUrl(e.target.value)}
                                 placeholder="Enter YouTube URL..."
-                                className="w-full px-6 py-4 rounded-xl bg-transparent focus:outline-none text-gray-700 dark:text-gray-200 placeholder-gray-500 dark:placeholder-gray-500"
+                                className="w-full px-6 py-4 rounded-xl bg-transparent focus:outline-none text-gray-700 dark:text-gray-200 placeholder-gray-500 dark:placeholder-gray-400"
                                 onFocus={() => setIsFocused(true)}
                                 onBlur={() => setIsFocused(false)}
                                 onKeyDown={(e) => {
@@ -216,7 +216,7 @@ export default function HomePage() {
                         </button>
                     </div>
                     {/* Quick Tips */}
-                    <div className="mt-6 text-center text-sm text-gray-500 dark:text-gray-500">
+                    <div className="mt-6 text-center text-sm text-gray-500 dark:text-gray-400">
                         Try pasting a YouTube URL to get started
                     </div>
                 </div>

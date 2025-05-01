@@ -187,11 +187,11 @@ export default function UpgradePage() {
     const stripeIsConfigured = isStripeConfigured();
 
     return (
-        <div className="flex min-h-screen bg-[#fffefe] dark:bg-gray-900 transition-colors">
+        <div className="flex min-h-screen bg-[#fffefe] dark:bg-[#202120] transition-colors">
             <main className="flex-1">
                 <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8 py-12">
                     {!stripeIsConfigured && (
-                        <div className="mb-8 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4 flex items-start">
+                        <div className="mb-8 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4 flex items-start shadow-sm dark:shadow-md">
                             <AlertTriangle className="h-5 w-5 text-yellow-500 dark:text-yellow-400 mr-3 flex-shrink-0 mt-0.5" />
                             <div>
                                 <p className="text-yellow-700 dark:text-yellow-300 font-medium">Payment system is not fully configured</p>
@@ -206,14 +206,14 @@ export default function UpgradePage() {
                         <h1 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-3">
                             Choose the Right Plan for You
                         </h1>
-                        <p className="text-lg text-gray-600 dark:text-gray-400 max-w-3xl mx-auto">
+                        <p className="text-lg text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
                             Upgrade to unlock more features and get the most out of your video summaries
                         </p>
                     </div>
 
                     {/* Success/Error Messages */}
                     {successMessage && (
-                        <div className="mb-8 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4 flex items-start">
+                        <div className="mb-8 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4 flex items-start shadow-sm dark:shadow-md">
                             <CheckCircle2 className="h-5 w-5 text-green-500 dark:text-green-400 mr-3 flex-shrink-0 mt-0.5" />
                             <div>
                                 <p className="text-green-700 dark:text-green-300 font-medium">{successMessage}</p>
@@ -225,18 +225,18 @@ export default function UpgradePage() {
                     )}
 
                     {errorMessage && (
-                        <div className="mb-8 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+                        <div className="mb-8 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 shadow-sm dark:shadow-md">
                             <p className="text-red-700 dark:text-red-300 font-medium">{errorMessage}</p>
                         </div>
                     )}
 
                     {/* Plans */}
                     <div className="flex justify-center mb-12">
-                        <div className="bg-gray-100 dark:bg-gray-800 p-1 rounded-lg inline-flex items-center">
+                        <div className="bg-gray-100 dark:bg-[#2E2E2E] p-1 rounded-lg inline-flex items-center shadow-sm dark:shadow-md">
                             <button
                                 className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${annualBilling
-                                    ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
-                                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
+                                    ? 'bg-white dark:bg-[#202120] text-gray-900 dark:text-white shadow-sm'
+                                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#383838]'
                                     }`}
                                 onClick={() => setAnnualBilling(true)}
                             >
@@ -244,8 +244,8 @@ export default function UpgradePage() {
                             </button>
                             <button
                                 className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${!annualBilling
-                                    ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
-                                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
+                                    ? 'bg-white dark:bg-[#202120] text-gray-900 dark:text-white shadow-sm'
+                                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#383838]'
                                     }`}
                                 onClick={() => setAnnualBilling(false)}
                             >
@@ -265,10 +265,10 @@ export default function UpgradePage() {
                             return (
                                 <div
                                     key={plan.name}
-                                    className={`bg-white dark:bg-gray-800 rounded-xl overflow-hidden border ${plan.popular
-                                        ? 'border-[#FFAB5B] shadow-lg'
+                                    className={`bg-white dark:bg-[#2E2E2E] rounded-xl overflow-hidden border shadow-sm dark:shadow-lg transition-all duration-200 ${plan.popular
+                                        ? 'border-[#FFAB5B] dark:border-[#FFAB5B]/70'
                                         : 'border-gray-200 dark:border-gray-700'
-                                        } ${isCurrentPlan ? 'ring-2 ring-[#FFAB5B]' : ''}`}
+                                        } ${isCurrentPlan ? 'ring-2 ring-[#FFAB5B]' : 'hover:shadow-md dark:hover:shadow-xl'}`}
                                 >
                                     {plan.popular && (
                                         <div className="bg-[#FFAB5B] text-white text-sm font-medium py-1 text-center">
@@ -278,7 +278,7 @@ export default function UpgradePage() {
                                     <div className="p-6">
                                         <div className="mb-5">
                                             <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-1">{plan.name}</h2>
-                                            <p className="text-gray-600 dark:text-gray-400">{plan.description}</p>
+                                            <p className="text-gray-600 dark:text-gray-300">{plan.description}</p>
                                         </div>
 
                                         <div className="mb-6">
@@ -287,14 +287,14 @@ export default function UpgradePage() {
                                             ) : (
                                                 <div className="flex items-baseline">
                                                     <span className="text-3xl font-bold text-gray-900 dark:text-white">USD {plan.price}</span>
-                                                    <span className="text-gray-600 dark:text-gray-400 ml-2 text-sm">
+                                                    <span className="text-gray-600 dark:text-gray-300 ml-2 text-sm">
                                                         / month {annualBilling ? 'billed annually' : ''}
                                                     </span>
                                                 </div>
                                             )}
                                             {(plan.name === 'Pro' || plan.name === 'Max') && annualBilling && (
                                                 <div className="flex items-center mt-2 text-sm text-gray-600 dark:text-gray-400">
-                                                    <Info className="h-4 w-4 mr-1" />
+                                                    <Info className="h-4 w-4 mr-1 text-[#FFAB5B] dark:text-[#FFAB5B]" />
                                                     Pay annually to save 10%
                                                 </div>
                                             )}
@@ -304,10 +304,10 @@ export default function UpgradePage() {
                                             onClick={() => handleUpgrade(plan.name)}
                                             disabled={loading === plan.name || isCurrentPlan}
                                             className={`w-full py-3 px-4 rounded-xl font-medium flex items-center justify-center transition-colors ${isCurrentPlan
-                                                ? 'bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 cursor-not-allowed'
+                                                ? 'bg-gray-200 dark:bg-[#383838] text-gray-800 dark:text-gray-200 cursor-not-allowed'
                                                 : plan.popular
-                                                    ? 'bg-[#E99947] hover:bg-[#FF9B3B] text-white'
-                                                    : 'bg-gray-900 dark:bg-gray-800 hover:bg-black dark:hover:bg-gray-700 text-white'
+                                                    ? 'bg-[#E99947] hover:bg-[#FF9B3B] text-white shadow-sm'
+                                                    : 'bg-gray-900 dark:bg-[#383838] hover:bg-black dark:hover:bg-[#434342] text-white shadow-sm'
                                                 } ${loading === plan.name ? 'opacity-50 cursor-not-allowed' : ''}`}
                                         >
                                             {loading === plan.name ? (
@@ -321,7 +321,7 @@ export default function UpgradePage() {
                                         </button>
                                     </div>
 
-                                    <div className="border-t border-gray-100 dark:border-gray-700 p-6">
+                                    <div className="border-t border-gray-100 dark:border-gray-600 p-6">
                                         <h3 className="font-medium text-gray-900 dark:text-white mb-4">
                                             {plan.name === 'Free' ? "What's included:" : `Everything in ${plan.name === 'Pro' ? 'Free' : 'Pro'}, plus:`}
                                         </h3>

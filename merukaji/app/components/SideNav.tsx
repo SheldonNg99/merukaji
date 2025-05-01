@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import { AlignLeft, AlignRight, ChevronDown, Settings, CreditCard, Layout, History, LogOut } from 'lucide-react';
+import { AlignLeft, AlignRight, ChevronDown, Settings, CreditCard, Layout, LogOut } from 'lucide-react';
 import Link from 'next/link';
 import { useSession, signOut } from 'next-auth/react';
 import { SideNavProps } from '@/types/sidenav-types';
@@ -103,7 +103,7 @@ export default function SideNav({ isDesktopSidebarOpen, onDesktopSidebarChange }
 
             {/* Side Navigation */}
             <div className={`
-                fixed top-0 left-0 h-full bg-[#f8faff] dark:bg-gray-800 z-50 
+                fixed top-0 left-0 h-full bg-[#f8faff] dark:bg-[#202120] z-50 
                 transform transition-all duration-300 ease-in-out
                 ${isMobileOpen ? 'translate-x-0 w-64' : '-translate-x-full w-64'} 
                 ${!isDesktopSidebarOpen ? 'lg:w-16 lg:translate-x-0' : 'lg:w-64 lg:translate-x-0'}
@@ -111,7 +111,7 @@ export default function SideNav({ isDesktopSidebarOpen, onDesktopSidebarChange }
                 border-r border-gray-200 dark:border-gray-700
             `}>
                 {/* Header with Toggle Buttons */}
-                <div className={`h-16 flex items-center border-b border-gray-200 dark:border-gray-700 bg-[#f8faff] dark:bg-gray-900/50 ${isMobileOpen ? 'p-4' : ''}`}>
+                <div className={`h-16 flex items-center border-b border-gray-200 dark:border-gray-700 bg-[#f8faff] dark:bg-[#202120] ${isMobileOpen ? 'p-4' : ''}`}>
                     <div className={`flex items-center w-full ${!isDesktopSidebarOpen ? 'lg:justify-center' : 'px-4'}`}>
                         {/* Mobile Toggle */}
                         <button
@@ -153,8 +153,8 @@ export default function SideNav({ isDesktopSidebarOpen, onDesktopSidebarChange }
                                         href={`/summary/${item.id}`}
                                         key={item.id}
                                         className={`flex items-center px-3 py-2 rounded-md transition-colors group cursor-pointer ${isActive
-                                            ? 'bg-white text-gray-900 dark:bg-gray-700 dark:text-white'
-                                            : 'text-gray-700 hover:bg-white hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-white'
+                                            ? 'bg-white text-gray-900 dark:bg-[#383838] dark:text-white'
+                                            : 'text-gray-700 hover:bg-white hover:text-gray-900 dark:text-gray-300 dark:hover:bg-[#2E2E2E] dark:hover:text-white'
                                             }`}
                                     >
                                         <div className="w-full overflow-hidden">
@@ -168,19 +168,10 @@ export default function SideNav({ isDesktopSidebarOpen, onDesktopSidebarChange }
 
                             {historyItems.length === 0 && (
                                 <div className="text-center py-6 px-3">
-                                    <p className="text-sm text-gray-500 dark:text-gray-500">No history yet</p>
+                                    <p className="text-sm text-gray-500 dark:text-gray-400">No history yet</p>
                                 </div>
                             )}
                         </div>
-
-                        {/* Collapsed sidebar view */}
-                        {!isDesktopSidebarOpen && (
-                            <div className="hidden lg:flex flex-col items-center mt-4 space-y-3">
-                                <button className="p-2 rounded-md hover:bg-white text-gray-500 hover:text-gray-900 dark:hover:bg-gray-700 dark:text-gray-400 dark:hover:text-white">
-                                    <History className="h-5 w-5" />
-                                </button>
-                            </div>
-                        )}
                     </div>
                 </div>
 
@@ -190,11 +181,11 @@ export default function SideNav({ isDesktopSidebarOpen, onDesktopSidebarChange }
                         <button
                             onClick={() => setIsProfileOpen(!isProfileOpen)}
                             className={`w-full py-4 flex items-center text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white 
-                                hover:bg-white dark:hover:bg-gray-700/80 transition-all
+                                hover:bg-white dark:hover:bg-[#2E2E2E] transition-all
                                 ${!isDesktopSidebarOpen ? 'lg:justify-center lg:px-2' : 'px-4'}`}
                         >
                             <div className={`flex items-center ${!isDesktopSidebarOpen || !isMobileOpen ? 'lg:justify-center' : 'space-x-3'}`}>
-                                <div className="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-600 flex items-center justify-center flex-shrink-0">
+                                <div className="w-8 h-8 rounded-full bg-gray-100 dark:bg-[#434342] flex items-center justify-center flex-shrink-0">
                                     <span className="text-xs text-gray-600 dark:text-gray-200">
                                         {session?.user?.name?.[0] || 'U'}
                                     </span>
@@ -208,7 +199,7 @@ export default function SideNav({ isDesktopSidebarOpen, onDesktopSidebarChange }
                         </button>
 
                         {isProfileOpen && (
-                            <div className={`absolute bottom-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg 
+                            <div className={`absolute bottom-full bg-white dark:bg-[#2E2E2E] border border-gray-200 dark:border-gray-700 rounded-lg 
                                 shadow-lg overflow-hidden mx-2
                                 ${!isDesktopSidebarOpen ? 'lg:left-full lg:w-52 lg:bottom-2 lg:rounded-l-none lg:rounded-r-lg' : 'left-0 w-[calc(100%-16px)]'}`}>
                                 <ul className="divide-y divide-gray-100 dark:divide-gray-700">
@@ -216,7 +207,7 @@ export default function SideNav({ isDesktopSidebarOpen, onDesktopSidebarChange }
                                         onClick={() => {
                                             closeProfileDropdown();
                                         }}
-                                        className="px-4 py-3 hover:bg-[#f8faff] dark:hover:bg-gray-700 cursor-pointer transition-colors flex items-center gap-3 text-sm text-gray-700 dark:text-gray-300"
+                                        className="px-4 py-3 hover:bg-[#f8faff] dark:hover:bg-[#383838] cursor-pointer transition-colors flex items-center gap-3 text-sm text-gray-700 dark:text-gray-300"
                                     >
                                         <CreditCard className="h-4 w-4 text-gray-400 dark:text-gray-500" />
                                         <div>
@@ -228,14 +219,14 @@ export default function SideNav({ isDesktopSidebarOpen, onDesktopSidebarChange }
                                     </li>
                                     <li
                                         onClick={() => handleNavigation('/settings')}
-                                        className="px-4 py-3 hover:bg-[#f8faff] dark:hover:bg-gray-700 cursor-pointer transition-colors flex items-center gap-3 text-sm text-gray-700 dark:text-gray-300"
+                                        className="px-4 py-3 hover:bg-[#f8faff] dark:hover:bg-[#383838] cursor-pointer transition-colors flex items-center gap-3 text-sm text-gray-700 dark:text-gray-300"
                                     >
                                         <Settings className="h-4 w-4 text-gray-400 dark:text-gray-500" />
                                         <span>Settings</span>
                                     </li>
                                     <li
                                         onClick={() => handleNavigation('/upgrade')}
-                                        className="px-4 py-3 hover:bg-[#f8faff] dark:hover:bg-gray-700 cursor-pointer transition-colors flex items-center gap-3 text-sm text-gray-700 dark:text-gray-300"
+                                        className="px-4 py-3 hover:bg-[#f8faff] dark:hover:bg-[#383838] cursor-pointer transition-colors flex items-center gap-3 text-sm text-gray-700 dark:text-gray-300"
                                     >
                                         <Layout className="h-4 w-4 text-gray-400 dark:text-gray-500" />
                                         <span>View All Plans</span>
@@ -246,7 +237,7 @@ export default function SideNav({ isDesktopSidebarOpen, onDesktopSidebarChange }
                                                 closeProfileDropdown();
                                                 signOut({ callbackUrl: '/' });
                                             }}
-                                            className="px-4 py-3 hover:bg-[#f8faff] dark:hover:bg-gray-700 cursor-pointer transition-colors flex items-center gap-3 text-sm text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300"
+                                            className="px-4 py-3 hover:bg-[#f8faff] dark:hover:bg-[#383838] cursor-pointer transition-colors flex items-center gap-3 text-sm text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300"
                                         >
                                             <LogOut className="h-4 w-4 text-red-400 dark:text-red-500" />
                                             <span>Log Out</span>
@@ -257,7 +248,7 @@ export default function SideNav({ isDesktopSidebarOpen, onDesktopSidebarChange }
                                                 closeProfileDropdown();
                                                 router.push('/login');
                                             }}
-                                            className="px-4 py-3 hover:bg-[#f8faff] dark:hover:bg-gray-700 cursor-pointer transition-colors flex items-center gap-3 text-sm text-gray-700 dark:text-gray-300"
+                                            className="px-4 py-3 hover:bg-[#f8faff] dark:hover:bg-[#383838] cursor-pointer transition-colors flex items-center gap-3 text-sm text-gray-700 dark:text-gray-300"
                                         >
                                             <LogOut className="h-4 w-4 text-gray-400 dark:text-gray-500" />
                                             <span>Sign In</span>
