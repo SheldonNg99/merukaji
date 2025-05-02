@@ -1,9 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { signIn } from 'next-auth/react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useToast } from '@/app/components/contexts/ToastContext';
 
 export default function Login() {
@@ -13,6 +13,16 @@ export default function Login() {
     const [error, setError] = useState('');
     const { showToast } = useToast();
     const router = useRouter();
+    const searchParams = useSearchParams();
+
+    useEffect(() => {
+        const errorType = searchParams.get('error');
+
+        if (errorType === 'OAuthAccountNotLinked') {
+            setError('An account with this email already exists. Please sign in with your email and password instead.');
+            showToast('Please use your email and password to sign in', 'warning', 5000);
+        }
+    }, [searchParams, showToast]);
 
     const handleEmailLogin = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
