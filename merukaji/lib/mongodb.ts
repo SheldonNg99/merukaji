@@ -1,4 +1,3 @@
-// lib/mongodb.ts
 import { MongoClient } from "mongodb";
 import { logger } from './logger';
 
@@ -6,16 +5,7 @@ if (!process.env.MONGODB_URI) {
     throw new Error('Invalid/Missing environment variable: "MONGODB_URI"');
 }
 
-// Get the original URI
-let uri = process.env.MONGODB_URI;
-
-// Add directConnection parameter if not present
-if (!uri.includes('directConnection=true')) {
-    // If URI already has parameters (contains a ?), add with &
-    // Otherwise add with ?
-    uri += uri.includes('?') ? '&directConnection=true' : '?directConnection=true';
-}
-
+const uri = process.env.MONGODB_URI;
 const options = {
     connectTimeoutMS: 10000,
     maxPoolSize: 10,
@@ -41,8 +31,7 @@ if (process.env.NODE_ENV === "development") {
         globalWithMongo._mongoClientPromise = client.connect()
             .catch(err => {
                 logger.error("MongoDB connection error in development:", {
-                    error: err instanceof Error ? err.message : String(err),
-                    stack: err instanceof Error ? err.stack : undefined
+                    error: err instanceof Error ? err.message : String(err)
                 });
                 throw err;
             });
@@ -54,8 +43,7 @@ if (process.env.NODE_ENV === "development") {
     clientPromise = client.connect()
         .catch(err => {
             logger.error("MongoDB connection error in production:", {
-                error: err instanceof Error ? err.message : String(err),
-                stack: err instanceof Error ? err.stack : undefined
+                error: err instanceof Error ? err.message : String(err)
             });
             throw err;
         });
@@ -66,7 +54,6 @@ export async function checkConnection() {
     try {
         const client = await clientPromise;
         await client.db().command({ ping: 1 });
-        logger.info("MongoDB connection verified successfully");
         return true;
     } catch (error) {
         logger.error("Database connection check failed:", {
