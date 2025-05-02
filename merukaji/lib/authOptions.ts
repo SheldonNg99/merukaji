@@ -89,32 +89,36 @@ export const authOptions: AuthOptions = {
     },
     callbacks: {
         async signIn({ user, account }) {
-            if (account?.provider === 'google') {
-                const client = await clientPromise;
-                const db = client.db();
+            try {
+                if (account?.provider === 'google') {
+                    const client = await clientPromise;
+                    const db = client.db();
 
-                let dbUser = await db.collection('users').findOne({ email: user.email });
+                    let dbUser = await db.collection('users').findOne({ email: user.email });
 
-                if (!dbUser) {
-                    const result = await db.collection('users').insertOne({
-                        email: user.email,
-                        name: user.name,
-                        tier: 'free',
-                        createdAt: new Date(),
-                    });
+                    if (!dbUser) {
+                        const result = await db.collection('users').insertOne({
+                            email: user.email,
+                            name: user.name,
+                            tier: 'free',
+                            createdAt: new Date(),
+                        });
 
-                    dbUser = {
-                        _id: result.insertedId,
-                        email: user.email,
-                        name: user.name,
-                        tier: 'free',
-                    };
+                        dbUser = {
+                            _id: result.insertedId,
+                            email: user.email,
+                            name: user.name,
+                            tier: 'free',
+                        };
+                    }
+                    user.id = dbUser._id.toString();
+                    user.tier = dbUser.tier;
                 }
-                user.id = dbUser._id.toString();
-                user.tier = dbUser.tier;
+                return true;
+            } catch (error) {
+                console.error("SignIn callback error:", error);
+                return true;
             }
-
-            return true;
         },
         async jwt({ token, user }) {
             if (user) {
