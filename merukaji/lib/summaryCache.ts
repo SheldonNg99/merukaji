@@ -1,29 +1,11 @@
-import clientPromise from './mongodb';
+import { supabaseAdmin } from './supabase';
 import { logger } from './logger';
-import { VideoMetadata } from '@/types/youtube';
-import { ObjectId } from 'mongodb';
-
-interface SummaryCacheInput {
-    userId: string;
-    videoId: string;
-    summaryType: string;
-    summary: string;
-    metadata: VideoMetadata;
-    provider: string;
-}
-
-interface CachedSummaryResult {
-    id: string;
-    summary: string;
-    metadata: VideoMetadata;
-    provider: string;
-    timestamp: string;
-}
+import { CachedSummaryResult, SummaryCacheInput } from '@/types/summary';
 
 const CACHE_TTL_DAYS = 7;
 
 /**
- * Get cached summary from MongoDB
+ * Get cached summary from Supabase
  */
 export async function getCachedSummary(
     videoId: string,
@@ -33,36 +15,36 @@ export async function getCachedSummary(
     try {
         logger.debug('Checking cache for summary', { videoId, requestId });
 
-        const client = await clientPromise;
-        const db = client.db();
+        // Calculate the date 7 days ago
+        const cacheDate = new Date();
+        cacheDate.setDate(cacheDate.getDate() - CACHE_TTL_DAYS);
 
-        const cachedSummary = await db.collection('summaries').findOne({
-            videoId,
-            summaryType,
-            // Only return summaries from last 7 days
-            createdAt: {
-                $gte: new Date(Date.now() - CACHE_TTL_DAYS * 24 * 60 * 60 * 1000)
-            }
-        });
+        const { data, error } = await supabaseAdmin
+            .from('summaries')
+            .select('*')
+            .eq('video_id', videoId)
+            .eq('summary_type', summaryType)
+            .gte('created_at', cacheDate.toISOString())
+            .single();
 
-        if (cachedSummary) {
-            logger.info('Cache hit for summary', {
-                requestId,
-                videoId,
-                age: `${Math.round((Date.now() - cachedSummary.createdAt.getTime()) / (1000 * 60))}min`
-            });
-
-            return {
-                id: cachedSummary._id.toString(),
-                summary: cachedSummary.summary,
-                metadata: cachedSummary.metadata,
-                provider: cachedSummary.provider,
-                timestamp: cachedSummary.createdAt.toISOString()
-            };
+        if (error || !data) {
+            logger.info('Cache miss for summary', { requestId, videoId });
+            return null;
         }
 
-        logger.info('Cache miss for summary', { requestId, videoId });
-        return null;
+        logger.info('Cache hit for summary', {
+            requestId,
+            videoId,
+            age: `${Math.round((Date.now() - new Date(data.created_at).getTime()) / (1000 * 60))}min`
+        });
+
+        return {
+            id: data.id,
+            summary: data.summary,
+            metadata: data.metadata,
+            provider: data.provider,
+            timestamp: data.created_at
+        };
 
     } catch (error) {
         logger.error('Error retrieving cached summary', {
@@ -75,7 +57,7 @@ export async function getCachedSummary(
 }
 
 /**
- * Cache summary in MongoDB
+ * Cache summary in Supabase
  */
 export async function cacheSummary(
     summary: SummaryCacheInput,
@@ -87,17 +69,30 @@ export async function cacheSummary(
             videoId: summary.videoId
         });
 
-        const client = await clientPromise;
-        const db = client.db();
+        // Calculate expiry date
+        const expiryDate = new Date();
+        expiryDate.setDate(expiryDate.getDate() + CACHE_TTL_DAYS);
 
-        const result = await db.collection('summaries').insertOne({
-            ...summary,
-            createdAt: new Date(),
-            // Add TTL index
-            expiresAt: new Date(Date.now() + CACHE_TTL_DAYS * 24 * 60 * 60 * 1000)
-        });
+        const { data, error } = await supabaseAdmin
+            .from('summaries')
+            .insert({
+                user_id: summary.userId,
+                video_id: summary.videoId,
+                summary_type: summary.summaryType,
+                summary: summary.summary,
+                metadata: summary.metadata,
+                provider: summary.provider,
+                created_at: new Date().toISOString(),
+                expires_at: expiryDate.toISOString()
+            })
+            .select('id')
+            .single();
 
-        const insertedId = result.insertedId.toString();
+        if (error) {
+            throw error;
+        }
+
+        const insertedId = data.id;
 
         logger.info('Summary cached successfully', {
             requestId,
@@ -126,16 +121,13 @@ export async function deleteCachedSummary(
     userId: string
 ): Promise<boolean> {
     try {
-        const client = await clientPromise;
-        const db = client.db();
+        const { error } = await supabaseAdmin
+            .from('summaries')
+            .delete()
+            .eq('id', summaryId)
+            .eq('user_id', userId);
 
-        // Only allow deletion if user owns the summary
-        const result = await db.collection('summaries').deleteOne({
-            _id: new ObjectId(summaryId),
-            userId
-        });
-
-        return result.deletedCount > 0;
+        return !error;
 
     } catch (error) {
         logger.error('Error deleting cached summary', {
@@ -149,62 +141,33 @@ export async function deleteCachedSummary(
 
 /**
  * Clean up expired summaries
- * Should be run as a scheduled task
+ * Handled automatically by Supabase using TTL
  */
 export async function cleanupExpiredSummaries(): Promise<number> {
     try {
-        const client = await clientPromise;
-        const db = client.db();
+        const cutoffDate = new Date();
+        cutoffDate.setDate(cutoffDate.getDate() - CACHE_TTL_DAYS);
 
-        const cutoffDate = new Date(Date.now() - CACHE_TTL_DAYS * 24 * 60 * 60 * 1000);
+        const { error, count } = await supabaseAdmin
+            .from('summaries')
+            .delete()
+            .lt('created_at', cutoffDate.toISOString())
+            .select('count');
 
-        const result = await db.collection('summaries').deleteMany({
-            createdAt: { $lt: cutoffDate }
-        });
+        if (error) {
+            throw error;
+        }
 
         logger.info('Cleaned up expired summaries', {
-            deletedCount: result.deletedCount
+            deletedCount: count
         });
 
-        return result.deletedCount;
+        return count || 0;
 
     } catch (error) {
         logger.error('Error cleaning up expired summaries', {
             error: error instanceof Error ? error.message : String(error)
         });
         return 0;
-    }
-}
-
-// Add MongoDB Index for TTL-based cleanup
-// This should be run during app initialization
-export async function setupSummaryIndexes(): Promise<void> {
-    try {
-        const client = await clientPromise;
-        const db = client.db();
-
-        // Create compound index for efficient lookups
-        await db.collection('summaries').createIndex(
-            { videoId: 1, summaryType: 1, createdAt: -1 }
-        );
-
-        // Create TTL index for automatic cleanup
-        await db.collection('summaries').createIndex(
-            { expiresAt: 1 },
-            { expireAfterSeconds: 0 }
-        );
-
-        // Create index for user history lookups
-        await db.collection('summaries').createIndex(
-            { userId: 1, createdAt: -1 }
-        );
-
-        logger.info('Summary cache indexes created successfully');
-
-    } catch (error) {
-        logger.error('Error creating summary cache indexes', {
-            error: error instanceof Error ? error.message : String(error)
-        });
-        throw error;
     }
 }

@@ -1,16 +1,14 @@
 import axios from 'axios';
 import { YoutubeTranscript } from 'youtube-transcript';
-import clientPromise from './mongodb';
+import { supabaseAdmin } from './supabase';
 import {
     VideoMetadata,
     TranscriptSegment,
-    CachedTranscript,
     ProcessedVideo
 } from '@/types/youtube';
 import { logger } from './logger';
 
 // Cache settings
-//const CACHE_TTL = 1000 * 60 * 60 * 24 * 7; // 7 days
 const MAX_RETRY_ATTEMPTS = 3;
 const RETRY_DELAY = 1000; // 1 second
 
@@ -206,31 +204,29 @@ export class YouTubeProcessor {
     }
 
     /**
-     * Get cached transcript from MongoDB
+     * Get cached transcript from Supabase
      */
     private async getCachedTranscript(videoId: string): Promise<TranscriptSegment[] | null> {
         try {
             logger.debug('Checking cache for transcript', { videoId });
 
-            const client = await clientPromise;
-            const db = client.db();
+            const { data, error } = await supabaseAdmin
+                .from('cached_transcripts')
+                .select('transcript')
+                .eq('video_id', videoId)
+                .gt('expires_at', new Date().toISOString())
+                .single();
 
-            const cachedTranscript = await db.collection<CachedTranscript>('cachedTranscripts')
-                .findOne({
-                    videoId,
-                    expiresAt: { $gt: new Date() } // Only return if not expired
-                });
-
-            if (cachedTranscript) {
-                logger.info('Cache hit for transcript', {
-                    videoId,
-                    cacheAge: `${Math.round((Date.now() - cachedTranscript.createdAt.getTime()) / (1000 * 60))}min`
-                });
-                return cachedTranscript.transcript;
-            } else {
+            if (error) {
                 logger.info('Cache miss for transcript', { videoId });
                 return null;
             }
+
+            if (data) {
+                return data.transcript;
+            }
+
+            return null;
         } catch (error) {
             logger.error('Error retrieving cached transcript', {
                 videoId,
@@ -241,30 +237,27 @@ export class YouTubeProcessor {
     }
 
     /**
-     * Cache transcript in MongoDB
+     * Cache transcript in Supabase
      */
     private async cacheTranscript(videoId: string, transcript: TranscriptSegment[], ttlDays: number = 30): Promise<void> {
         try {
             logger.debug('Caching transcript', { videoId, ttlDays });
 
-            const client = await clientPromise;
-            const db = client.db();
-
             const now = new Date();
             const expiresAt = new Date(now.getTime() + (ttlDays * 24 * 60 * 60 * 1000)); // Convert days to milliseconds
 
-            await db.collection<CachedTranscript>('cachedTranscripts').updateOne(
-                { videoId },
-                {
-                    $set: {
-                        videoId,
-                        transcript,
-                        createdAt: now,
-                        expiresAt
-                    }
-                },
-                { upsert: true } // Create if doesn't exist
-            );
+            const { error } = await supabaseAdmin
+                .from('cached_transcripts')
+                .upsert({
+                    video_id: videoId,
+                    transcript,
+                    created_at: now.toISOString(),
+                    expires_at: expiresAt.toISOString()
+                });
+
+            if (error) {
+                throw error;
+            }
 
             logger.info('Transcript cached successfully', {
                 videoId,
@@ -342,20 +335,23 @@ export async function testYouTubeProcessor(url: string): Promise<{
 }
 
 /**
- * Get cached transcript from MongoDB
+ * Get cached transcript from Supabase
  */
 export async function getCachedTranscript(videoId: string): Promise<TranscriptSegment[] | null> {
     try {
-        const client = await clientPromise;
-        const db = client.db();
+        const { data, error } = await supabaseAdmin
+            .from('cached_transcripts')
+            .select('transcript')
+            .eq('video_id', videoId)
+            .gt('expires_at', new Date().toISOString())
+            .single();
 
-        const cachedTranscript = await db.collection<CachedTranscript>('cachedTranscripts')
-            .findOne({
-                videoId,
-                expiresAt: { $gt: new Date() } // Only return if not expired
-            });
+        if (error) {
+            console.error('Error retrieving cached transcript:', error);
+            return null;
+        }
 
-        return cachedTranscript ? cachedTranscript.transcript : null;
+        return data?.transcript || null;
     } catch (error) {
         console.error('Error retrieving cached transcript:', error);
         return null; // Continue without cache on error
@@ -363,7 +359,7 @@ export async function getCachedTranscript(videoId: string): Promise<TranscriptSe
 }
 
 /**
- * Cache transcript in MongoDB
+ * Cache transcript in Supabase
  */
 export async function cacheTranscript(
     videoId: string,
@@ -371,24 +367,21 @@ export async function cacheTranscript(
     ttlDays: number = 30 // Default TTL of 30 days
 ): Promise<void> {
     try {
-        const client = await clientPromise;
-        const db = client.db();
-
         const now = new Date();
         const expiresAt = new Date(now.getTime() + (ttlDays * 24 * 60 * 60 * 1000)); // Convert days to milliseconds
 
-        await db.collection<CachedTranscript>('cachedTranscripts').updateOne(
-            { videoId },
-            {
-                $set: {
-                    videoId,
-                    transcript,
-                    createdAt: now,
-                    expiresAt
-                }
-            },
-            { upsert: true } // Create if doesn't exist
-        );
+        const { error } = await supabaseAdmin
+            .from('cached_transcripts')
+            .upsert({
+                video_id: videoId,
+                transcript,
+                created_at: now.toISOString(),
+                expires_at: expiresAt.toISOString()
+            });
+
+        if (error) {
+            throw error;
+        }
     } catch (error) {
         console.error('Error caching transcript:', error);
         // Continue without caching on error

@@ -1,6 +1,5 @@
-import clientPromise from "./mongodb";
+import { supabaseAdmin } from "./supabase";
 import { logger } from "./logger";
-import { ObjectId } from "mongodb";
 import { UsageQuota } from "@/types/ratelimit"
 
 // Tier-based usage quotas
@@ -35,9 +34,6 @@ export async function checkRateLimit(userId: string, tier: string = 'free'): Pro
     resetTime?: { daily: Date; minute: Date; }
 }> {
     try {
-        const client = await clientPromise;
-        const db = client.db();
-
         const userQuota = TIER_QUOTAS[tier] || TIER_QUOTAS.free;
         const now = new Date();
 
@@ -56,23 +52,36 @@ export async function checkRateLimit(userId: string, tier: string = 'free'): Pro
         const nextMinute = new Date(startOfMinute);
         nextMinute.setMinutes(nextMinute.getMinutes() + 1);
 
-        // Get usage counts
-        const dailyUsage = await db.collection('usageStats').countDocuments({
-            userId,
-            timestamp: { $gte: startOfDay }
-        });
+        // Get daily usage count
+        const { count: dailyUsage, error: dailyError } = await supabaseAdmin
+            .from('usage_stats')
+            .select('*', { count: 'exact', head: true })
+            .eq('user_id', userId)
+            .gte('timestamp', startOfDay.toISOString())
+            .eq('reset', false);
 
-        const minuteUsage = await db.collection('usageStats').countDocuments({
-            userId,
-            timestamp: { $gte: startOfMinute }
-        });
+        if (dailyError) {
+            throw dailyError;
+        }
+
+        // Get minute usage count
+        const { count: minuteUsage, error: minuteError } = await supabaseAdmin
+            .from('usage_stats')
+            .select('*', { count: 'exact', head: true })
+            .eq('user_id', userId)
+            .gte('timestamp', startOfMinute.toISOString())
+            .eq('reset', false);
+
+        if (minuteError) {
+            throw minuteError;
+        }
 
         // Calculate remaining
-        const dailyRemaining = Math.max(0, userQuota.dailyLimit - dailyUsage);
-        const minuteRemaining = Math.max(0, userQuota.minuteLimit - minuteUsage);
+        const dailyRemaining = Math.max(0, userQuota.dailyLimit - (dailyUsage || 0));
+        const minuteRemaining = Math.max(0, userQuota.minuteLimit - (minuteUsage || 0));
 
         // Check if user has exceeded limits
-        if (dailyUsage >= userQuota.dailyLimit) {
+        if ((dailyUsage || 0) >= userQuota.dailyLimit) {
             return {
                 allowed: false,
                 reason: 'daily_limit_exceeded',
@@ -81,7 +90,7 @@ export async function checkRateLimit(userId: string, tier: string = 'free'): Pro
             };
         }
 
-        if (minuteUsage >= userQuota.minuteLimit) {
+        if ((minuteUsage || 0) >= userQuota.minuteLimit) {
             return {
                 allowed: false,
                 reason: 'minute_limit_exceeded',
@@ -111,15 +120,19 @@ export async function checkRateLimit(userId: string, tier: string = 'free'): Pro
  */
 export async function recordUsage(userId: string, videoId: string): Promise<void> {
     try {
-        const client = await clientPromise;
-        const db = client.db();
+        const { error } = await supabaseAdmin
+            .from('usage_stats')
+            .insert({
+                user_id: userId,
+                video_id: videoId,
+                timestamp: new Date().toISOString(),
+                action: 'summarize',
+                reset: false
+            });
 
-        await db.collection('usageStats').insertOne({
-            userId,
-            videoId,
-            timestamp: new Date(),
-            action: 'summarize'
-        });
+        if (error) {
+            throw error;
+        }
 
         logger.info('Recorded usage for rate limiting', { userId, videoId });
     } catch (error) {
@@ -137,29 +150,21 @@ export async function recordUsage(userId: string, videoId: string): Promise<void
  */
 export async function resetUserDailyLimit(userId: string): Promise<boolean> {
     try {
-        const client = await clientPromise;
-        const db = client.db();
-
         const startOfDay = new Date();
         startOfDay.setHours(0, 0, 0, 0);
 
-        // We don't actually delete the records, but tag them as reset
-        const result = await db.collection('usageStats').updateMany(
-            {
-                userId,
-                timestamp: { $gte: startOfDay },
-                reset: { $ne: true }
-            },
-            {
-                $set: { reset: true }
-            }
-        );
+        const { error } = await supabaseAdmin
+            .from('usage_stats')
+            .update({ reset: true })
+            .eq('user_id', userId)
+            .gte('timestamp', startOfDay.toISOString())
+            .eq('reset', false);
 
-        logger.info('Manually reset daily limit for user', {
-            userId,
-            entriesReset: result.modifiedCount
-        });
+        if (error) {
+            throw error;
+        }
 
+        logger.info('Manually reset daily limit for user', { userId });
         return true;
     } catch (error) {
         logger.error('Failed to reset user daily limit', {
@@ -177,19 +182,20 @@ export async function resetUserDailyLimit(userId: string): Promise<boolean> {
  */
 export async function cleanupOldUsageRecords(): Promise<number> {
     try {
-        const client = await clientPromise;
-        const db = client.db();
-
-        // Calculate cutoff date (e.g., 30 days ago)
         const cutoffDate = new Date();
         cutoffDate.setDate(cutoffDate.getDate() - USAGE_RETENTION_DAYS);
 
-        // Delete old records
-        const result = await db.collection('usageStats').deleteMany({
-            timestamp: { $lt: cutoffDate }
-        });
+        const { error, count } = await supabaseAdmin
+            .from('usage_stats')
+            .delete()
+            .lt('timestamp', cutoffDate.toISOString())
+            .select('count');
 
-        const deletedCount = result.deletedCount || 0;
+        if (error) {
+            throw error;
+        }
+
+        const deletedCount = count || 0;
 
         logger.info('Cleaned up old usage records', {
             deletedCount,
@@ -217,21 +223,35 @@ export async function getUserUsageStats(userId: string): Promise<{
     usageHistory: { date: string; count: number }[];
 }> {
     try {
-        const client = await clientPromise;
-        const db = client.db();
+        // Get user tier
+        const { data: userData, error: userError } = await supabaseAdmin
+            .from('users')
+            .select('tier')
+            .eq('id', userId)
+            .single();
 
-        const userTier = await getUserTier(userId);
+        if (userError) {
+            throw userError;
+        }
+
+        const userTier = userData?.tier || 'free';
         const userQuota = TIER_QUOTAS[userTier] || TIER_QUOTAS.free;
 
-        // Get today's usage
+        // Get start of today
         const startOfDay = new Date();
         startOfDay.setHours(0, 0, 0, 0);
 
-        const dailyUsage = await db.collection('usageStats').countDocuments({
-            userId,
-            timestamp: { $gte: startOfDay },
-            reset: { $ne: true }
-        });
+        // Get daily usage
+        const { count: dailyUsage, error: countError } = await supabaseAdmin
+            .from('usage_stats')
+            .select('*', { count: 'exact', head: true })
+            .eq('user_id', userId)
+            .gte('timestamp', startOfDay.toISOString())
+            .eq('reset', false);
+
+        if (countError) {
+            throw countError;
+        }
 
         // Calculate next reset time
         const nextReset = new Date(startOfDay);
@@ -242,40 +262,34 @@ export async function getUserUsageStats(userId: string): Promise<{
         startOfWeek.setDate(startOfWeek.getDate() - 6); // Last 7 days including today
         startOfWeek.setHours(0, 0, 0, 0);
 
-        const usageHistoryData = await db.collection('usageStats').aggregate([
-            {
-                $match: {
-                    userId,
-                    timestamp: { $gte: startOfWeek },
-                    reset: { $ne: true }
-                }
-            },
-            {
-                $group: {
-                    _id: {
-                        year: { $year: "$timestamp" },
-                        month: { $month: "$timestamp" },
-                        day: { $dayOfMonth: "$timestamp" }
-                    },
-                    count: { $sum: 1 }
-                }
-            },
-            { $sort: { "_id.year": 1, "_id.month": 1, "_id.day": 1 } }
-        ]).toArray();
+        // This is more complex with Supabase - we'll need to do some post-processing
+        const { data: usageData, error: usageError } = await supabaseAdmin
+            .from('usage_stats')
+            .select('timestamp')
+            .eq('user_id', userId)
+            .gte('timestamp', startOfWeek.toISOString())
+            .eq('reset', false);
 
-        // Format usage history
-        const usageHistory = usageHistoryData.map(item => {
-            const date = new Date(item._id.year, item._id.month - 1, item._id.day);
-            return {
-                date: date.toISOString().split('T')[0], // YYYY-MM-DD format
-                count: item.count
-            };
-        });
+        if (usageError) {
+            throw usageError;
+        }
+
+        // Group by date
+        const usageByDate = new Map<string, number>();
+        for (const item of usageData || []) {
+            const date = new Date(item.timestamp).toISOString().split('T')[0];
+            usageByDate.set(date, (usageByDate.get(date) || 0) + 1);
+        }
+
+        const usageHistory = Array.from(usageByDate.entries()).map(([date, count]) => ({
+            date,
+            count
+        }));
 
         return {
-            dailyUsage,
+            dailyUsage: dailyUsage || 0,
             dailyLimit: userQuota.dailyLimit,
-            dailyRemaining: Math.max(0, userQuota.dailyLimit - dailyUsage),
+            dailyRemaining: Math.max(0, userQuota.dailyLimit - (dailyUsage || 0)),
             nextReset,
             usageHistory
         };
@@ -297,79 +311,4 @@ export async function getUserUsageStats(userId: string): Promise<{
             usageHistory: []
         };
     }
-}
-
-/**
- * Helper function to get a user's current tier
- */
-async function getUserTier(userId: string): Promise<string> {
-    try {
-        const client = await clientPromise;
-        const db = client.db();
-
-        // Create a query that handles both ObjectId and string IDs
-        let query;
-
-        // Check if userId is in valid ObjectId format
-        if (ObjectId.isValid(userId)) {
-            query = { _id: new ObjectId(userId) };
-        } else {
-            // Fallback to using the string ID directly
-            query = { id: userId };
-        }
-
-        const user = await db.collection('users').findOne(query);
-        return user?.tier || 'free';
-    } catch (error) {
-        logger.error('Failed to get user tier', {
-            userId,
-            error: error instanceof Error ? error.message : String(error)
-        });
-
-        return 'free';
-    }
-}
-
-/**
- * Setup a scheduled job to clean up old usage records
- * This can be called when the application starts
- */
-export function setupRateLimitCleanupJob(): {
-    initialTimeout: NodeJS.Timeout;
-    scheduledInterval: NodeJS.Timeout | null;
-} {
-    // Run cleanup once a day at 2 AM UTC
-    const msUntilNextRun = getMillisecondsUntil(2); // 2 AM
-    let scheduledInterval: NodeJS.Timeout | null = null;
-
-    // Set up initial timeout
-    const initialTimeout = setTimeout(() => {
-        // Run first cleanup
-        cleanupOldUsageRecords();
-
-        // Then set it up to run daily
-        scheduledInterval = setInterval(() => {
-            cleanupOldUsageRecords();
-        }, 24 * 60 * 60 * 1000); // 24 hours
-
-    }, msUntilNextRun);
-
-    return { initialTimeout, scheduledInterval };
-}
-
-/**
- * Helper function to calculate milliseconds until a specific hour UTC
- */
-function getMillisecondsUntil(hour: number): number {
-    const now = new Date();
-    const target = new Date(now);
-
-    target.setUTCHours(hour, 0, 0, 0);
-
-    // If the target time has already passed today, set for tomorrow
-    if (target <= now) {
-        target.setDate(target.getDate() + 1);
-    }
-
-    return target.getTime() - now.getTime();
 }

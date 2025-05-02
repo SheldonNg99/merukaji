@@ -1,18 +1,34 @@
+import { SupabaseAdapter } from "@auth/supabase-adapter";
 import NextAuth, { AuthOptions } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 import CredentialsProvider from "next-auth/providers/credentials";
-import { MongoDBAdapter } from "@auth/mongodb-adapter";
-import clientPromise from "@/lib/mongodb";
+import { createClient } from '@supabase/supabase-js';
 import { compare } from "bcryptjs";
 
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+
 async function getUserByEmail(email: string) {
-    const client = await clientPromise;
-    const db = client.db();
-    return await db.collection('users').findOne({ email });
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('email', email)
+        .single();
+
+    if (error) {
+        console.error('Error fetching user:', error);
+        return null;
+    }
+
+    return data;
 }
 
 export const authOptions: AuthOptions = {
-    adapter: MongoDBAdapter(clientPromise),
+    adapter: SupabaseAdapter({
+        url: supabaseUrl,
+        secret: supabaseServiceKey,
+    }),
     providers: [
         GoogleProvider({
             clientId: process.env.GOOGLE_CLIENT_ID!,
@@ -47,7 +63,7 @@ export const authOptions: AuthOptions = {
                 }
 
                 return {
-                    id: user._id.toString(),
+                    id: user.id.toString(),
                     email: user.email,
                     name: user.name,
                     tier: user.tier || 'free',
@@ -55,71 +71,43 @@ export const authOptions: AuthOptions = {
             },
         }),
     ],
-    cookies: {
-        sessionToken: {
-            name: `next-auth.session-token`,
-            options: {
-                httpOnly: true,
-                sameSite: "lax",
-                path: "/",
-                secure: process.env.NODE_ENV === "production",
-            },
-        },
-        callbackUrl: {
-            name: `next-auth.callback-url`,
-            options: {
-                httpOnly: true,
-                sameSite: "lax",
-                path: "/",
-                secure: process.env.NODE_ENV === "production",
-            },
-        },
-        csrfToken: {
-            name: `next-auth.csrf-token`,
-            options: {
-                httpOnly: true,
-                sameSite: "lax",
-                path: "/",
-                secure: process.env.NODE_ENV === "production",
-            },
-        },
-        state: {
-            name: `next-auth.state`,
-            options: {
-                httpOnly: true,
-                sameSite: "lax",
-                path: "/",
-                secure: process.env.NODE_ENV === "production",
-                maxAge: 900,
-            },
-        },
-    },
     callbacks: {
         async signIn({ user, account }) {
             try {
                 if (account?.provider === 'google') {
-                    const client = await clientPromise;
-                    const db = client.db();
+                    const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-                    let dbUser = await db.collection('users').findOne({ email: user.email });
+                    // Check if user exists
+                    const { data: existingUser } = await supabase
+                        .from('users')
+                        .select('*')
+                        .eq('email', user.email)
+                        .single();
 
-                    if (!dbUser) {
-                        const result = await db.collection('users').insertOne({
-                            email: user.email,
-                            name: user.name,
-                            tier: 'free',
-                            createdAt: new Date(),
-                        });
+                    if (!existingUser) {
+                        // Create new user
+                        const { data, error } = await supabase
+                            .from('users')
+                            .insert({
+                                email: user.email,
+                                name: user.name,
+                                tier: 'free',
+                                created_at: new Date().toISOString(),
+                            })
+                            .select()
+                            .single();
 
-                        dbUser = {
-                            _id: result.insertedId,
-                            email: user.email,
-                            name: user.name,
-                            tier: 'free',
-                        };
+                        if (error) {
+                            console.error('Error creating user:', error);
+                            return false;
+                        }
+
+                        user.id = data.id;
+                        user.tier = data.tier;
+                    } else {
+                        user.id = existingUser.id;
+                        user.tier = existingUser.tier;
                     }
-                    user.id = dbUser._id.toString();
-                    user.tier = dbUser.tier;
                 }
                 return true;
             } catch (error) {

@@ -1,18 +1,5 @@
 import { VideoMetadata } from "./youtube";
 
-export type SummaryProvider = 'gemini' | 'openai' | 'basic' | string;
-
-export interface SummaryData {
-    summary: string;
-    provider: SummaryProvider;
-    error?: string;
-    cached?: boolean;
-    limits?: {
-        daily: number;
-        minute: number;
-    };
-}
-
 export interface SummaryResultsPageProps {
     summary: string;
     metadata?: VideoMetadata;
@@ -20,15 +7,19 @@ export interface SummaryResultsPageProps {
     provider?: string | null;
 }
 
-
-export interface SummaryHistoryItem {
-    id: string;
+export interface SummaryCacheInput {
     userId: string;
     videoId: string;
-    videoTitle: string;
-    videoThumbnail?: string;
+    summaryType: string;
     summary: string;
-    createdAt: string;
-    length: 'short' | 'comprehensive';
-    provider: SummaryProvider;
+    metadata: VideoMetadata;
+    provider: string;
+}
+
+export interface CachedSummaryResult {
+    id: string;
+    summary: string;
+    metadata: VideoMetadata;
+    provider: string;
+    timestamp: string;
 }
