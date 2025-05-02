@@ -1,35 +1,32 @@
+// lib/mongodb.ts
 import { MongoClient } from "mongodb";
+import { logger } from './logger';
 
 if (!process.env.MONGODB_URI) {
     throw new Error('Invalid/Missing environment variable: "MONGODB_URI"');
 }
 
-const uri = process.env.MONGODB_URI;
+// Get the original URI
+let uri = process.env.MONGODB_URI;
+
+// Add directConnection parameter if not present
+if (!uri.includes('directConnection=true')) {
+    // If URI already has parameters (contains a ?), add with &
+    // Otherwise add with ?
+    uri += uri.includes('?') ? '&directConnection=true' : '?directConnection=true';
+}
+
 const options = {
-    connectTimeoutMS: 30000,
+    connectTimeoutMS: 10000,
     maxPoolSize: 10,
     minPoolSize: 0,
-    serverSelectionTimeoutMS: 30000,
-    socketTimeoutMS: 75000,
+    serverSelectionTimeoutMS: 5000,
+    socketTimeoutMS: 45000,
     maxIdleTimeMS: 120000,
 }
 
 let client;
 let clientPromise: Promise<MongoClient>;
-
-if (process.env.NODE_ENV === "production") {
-    console.log("Connecting to MongoDB with options:", options);
-    client = new MongoClient(uri, options);
-    clientPromise = client.connect()
-        .then(client => {
-            console.log("MongoDB connected successfully");
-            return client;
-        })
-        .catch(err => {
-            console.error("MongoDB connection error in production:", err);
-            throw err;
-        });
-}
 
 // Development: Use global variable to preserve connection across HMR
 if (process.env.NODE_ENV === "development") {
@@ -43,7 +40,10 @@ if (process.env.NODE_ENV === "development") {
         client = new MongoClient(uri, options);
         globalWithMongo._mongoClientPromise = client.connect()
             .catch(err => {
-                console.error("MongoDB connection error in development:", err);
+                logger.error("MongoDB connection error in development:", {
+                    error: err instanceof Error ? err.message : String(err),
+                    stack: err instanceof Error ? err.stack : undefined
+                });
                 throw err;
             });
     }
@@ -53,20 +53,27 @@ if (process.env.NODE_ENV === "development") {
     client = new MongoClient(uri, options);
     clientPromise = client.connect()
         .catch(err => {
-            console.error("MongoDB connection error in production:", err);
+            logger.error("MongoDB connection error in production:", {
+                error: err instanceof Error ? err.message : String(err),
+                stack: err instanceof Error ? err.stack : undefined
+            });
             throw err;
         });
 }
 
-export default clientPromise;
-
+// Add a connection health check function
 export async function checkConnection() {
     try {
         const client = await clientPromise;
         await client.db().command({ ping: 1 });
+        logger.info("MongoDB connection verified successfully");
         return true;
     } catch (error) {
-        console.error("Database connection check failed:", error);
+        logger.error("Database connection check failed:", {
+            error: error instanceof Error ? error.message : String(error)
+        });
         return false;
     }
 }
+
+export default clientPromise;
