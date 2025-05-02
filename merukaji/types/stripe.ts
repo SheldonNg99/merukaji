@@ -116,6 +116,16 @@ export const PLAN_LIMITS = {
     }
 } as const;
 
+
+export interface UserSubscriptionStatus {
+    tier: string;
+    status: string | null;
+    currentPeriodEnd?: string | null;
+    cancelAtPeriodEnd?: boolean;
+    interval?: string;
+    amount?: number;
+}
+
 export const SUBSCRIPTION_STATUSES = {
     ACTIVE: 'active',
     CANCELED: 'canceled',

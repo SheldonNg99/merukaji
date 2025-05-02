@@ -1,10 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { CreditCard, User, Check, Moon, Sun } from 'lucide-react';
+import { CreditCard, User, Moon, Sun } from 'lucide-react';
 import { ThemeToggle } from './ThemeToggle';
 import { useToast } from '@/app/components/contexts/ToastContext';
 import { UserSettings } from '@/lib/settings';
+import SubscriptionDetails from './SubscriptionDetails';
 
 export default function SettingsPage() {
     const [activeTab, setActiveTab] = useState('profile');
@@ -208,107 +209,15 @@ export default function SettingsPage() {
                                         <ThemeToggle />
 
                                         <p className="mt-4 text-sm text-gray-500 dark:text-gray-400">
-                                            Choose between light and dark mode for your Merukaji experience. Your preference will be saved for your next visit.
+                                            Choose between light and dark mode for your Merukaji experience. Your preference will be saved automatically for your next visit.
                                         </p>
-                                    </div>
-
-                                    <div className="flex justify-end">
-                                        <button
-                                            onClick={handleSaveChanges}
-                                            className="px-5 py-2.5 bg-orange-500 hover:bg-orange-600 text-white rounded-lg transition-colors shadow-sm"
-                                        >
-                                            Save preferences
-                                        </button>
                                     </div>
                                 </div>
                             </div>
                         )}
 
                         {activeTab === 'billing' && (
-                            <div className="space-y-6">
-                                {/* Current Plan Card */}
-                                <div className="bg-white dark:bg-[#2E2E2E] rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
-                                    <div className="p-6">
-                                        <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Current Plan</h2>
-
-                                        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                                            <div>
-                                                <div className="flex items-center gap-2 mb-2">
-                                                    <span className="inline-block px-2.5 py-1 bg-gray-100 dark:bg-[#383838] text-gray-700 dark:text-gray-300 text-xs font-medium rounded-full">
-                                                        {userData?.tier ? `${userData.tier.charAt(0).toUpperCase() + userData.tier.slice(1)} Plan` : 'Free Plan'}
-                                                    </span>
-                                                    <span className="text-gray-500 dark:text-gray-400 text-sm">0 / 3 summaries used today</span>
-                                                </div>
-                                                <p className="text-gray-600 dark:text-gray-300 mb-3">
-                                                    Basic functionality with limited features.
-                                                </p>
-                                                <ul className="space-y-2 text-sm text-gray-600 dark:text-gray-300">
-                                                    <li className="flex items-center">
-                                                        <Check className="h-4 w-4 text-green-500 dark:text-green-400 mr-2" />
-                                                        <span>3 free summaries per day</span>
-                                                    </li>
-                                                    <li className="flex items-center">
-                                                        <Check className="h-4 w-4 text-green-500 dark:text-green-400 mr-2" />
-                                                        <span>Basic summary length</span>
-                                                    </li>
-                                                    <li className="flex items-center">
-                                                        <Check className="h-4 w-4 text-green-500 dark:text-green-400 mr-2" />
-                                                        <span>Standard quality model</span>
-                                                    </li>
-                                                </ul>
-                                            </div>
-
-                                            <div className="flex-shrink-0">
-                                                <button className="w-full md:w-auto px-5 py-2.5 bg-gradient-to-r from-orange-500 to-orange-400 hover:from-orange-600 hover:to-orange-500 text-white rounded-lg transition-all shadow-sm">
-                                                    Upgrade to Premium
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div className="bg-orange-50 dark:bg-orange-900/20 px-6 py-4 border-t border-orange-100 dark:border-orange-800/30">
-                                        <div className="flex items-start gap-3">
-                                            <div className="flex-shrink-0 bg-orange-100 dark:bg-orange-800/40 p-2 rounded-lg">
-                                                <CreditCard className="h-5 w-5 text-orange-500 dark:text-orange-400" />
-                                            </div>
-                                            <div>
-                                                <h3 className="text-sm font-medium text-gray-900 dark:text-white">Premium Plan Benefits</h3>
-                                                <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">
-                                                    Upgrade to Premium for unlimited summaries, longer detailed summaries, and higher quality AI models.
-                                                </p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Payment Information Card */}
-                                <div className="bg-white dark:bg-[#2E2E2E] rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-                                    <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Payment Information</h2>
-
-                                    <div className="flex items-center justify-center h-32 bg-gray-50 dark:bg-[#383838] rounded-lg border border-dashed border-gray-300 dark:border-gray-600">
-                                        <div className="text-center">
-                                            <p className="text-gray-600 dark:text-gray-300 mb-1">No payment method on file</p>
-                                            <p className="text-sm text-gray-500 dark:text-gray-400">
-                                                Payment methods will be added when you upgrade to a paid plan
-                                            </p>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Subscription Management Card */}
-                                <div className="bg-white dark:bg-[#2E2E2E] rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-                                    <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Subscription Management</h2>
-
-                                    <div className="p-4 bg-gray-50 dark:bg-[#383838] rounded-lg border border-gray-200 dark:border-gray-600">
-                                        <p className="text-gray-600 dark:text-gray-300 mb-4">Your subscription renews automatically at the end of each billing period.</p>
-
-                                        <button className="text-sm text-gray-400 dark:text-gray-500 cursor-not-allowed flex items-center gap-1" disabled>
-                                            <span>Cancel subscription</span>
-                                            <span className="text-xs bg-gray-200 dark:bg-[#2A2A2A] text-gray-500 dark:text-gray-400 px-2 py-0.5 rounded-full">Free Plan</span>
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
+                            <SubscriptionDetails />
                         )}
                     </div>
                 </div>

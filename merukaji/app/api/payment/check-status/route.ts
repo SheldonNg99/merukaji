@@ -1,3 +1,4 @@
+// app/api/payment/check-status/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/authOptions';
@@ -6,11 +7,10 @@ import clientPromise from '@/lib/mongodb';
 import { logger } from '@/lib/logger';
 import { PRICE_IDS } from '@/lib/stripe';
 
-// Add this GET handler
+// GET handler for fetching subscription status
 export async function GET(req: NextRequest) {
     try {
-
-        logger.info('status requested', {
+        logger.info('Subscription status requested', {
             method: req.method
         });
 
@@ -33,25 +33,24 @@ export async function GET(req: NextRequest) {
         if (!user.stripeSubscriptionId) {
             return NextResponse.json({
                 tier: user.tier || 'free',
+                status: null,
                 subscription: null
             });
         }
 
-        // Fetch subscription details from Stripe
-        const subscription = await stripe.subscriptions.retrieve(user.stripeSubscriptionId);
+        try {
+            // Fetch subscription details from Stripe
+            const subscription = await stripe.subscriptions.retrieve(user.stripeSubscriptionId);
 
-        // Get the subscription item data (first item)
-        const subscriptionItem = subscription.items.data[0];
+            // Get the subscription item data (first item)
+            const subscriptionItem = subscription.items.data[0];
 
-        return NextResponse.json({
-            tier: user.tier || 'free',
-            subscription: {
-                id: subscription.id,
+            return NextResponse.json({
+                tier: user.tier || 'free',
                 status: subscription.status,
-                // Access current_period_end from the subscription item
-                currentPeriodEnd: subscriptionItem?.current_period_end
+                currentPeriodEnd: subscriptionItem.current_period_end
                     ? new Date(subscriptionItem.current_period_end * 1000).toISOString()
-                    : new Date().toISOString(),
+                    : null,
                 cancelAtPeriodEnd: subscription.cancel_at_period_end,
                 // Get the billing interval from the plan
                 interval: subscriptionItem?.plan?.interval || 'month',
@@ -59,17 +58,38 @@ export async function GET(req: NextRequest) {
                 amount: subscriptionItem?.plan?.amount
                     ? subscriptionItem.plan.amount / 100
                     : 0,
-            }
-        });
+                created: subscription.created
+                    ? new Date(subscription.created * 1000).toISOString()
+                    : null
+            });
+        } catch (stripeError) {
+            logger.error('Failed to fetch stripe subscription details', {
+                userId: user.id,
+                subscriptionId: user.stripeSubscriptionId,
+                error: stripeError instanceof Error ? stripeError.message : String(stripeError)
+            });
+
+            // Return basic info with user tier if Stripe API fails
+            return NextResponse.json({
+                tier: user.tier || 'free',
+                status: user.subscriptionStatus || null,
+                subscription: null,
+                error: 'Failed to fetch complete subscription details'
+            });
+        }
     } catch (error) {
-        console.error('Error fetching subscription details:', error);
+        logger.error('Error fetching subscription details:', {
+            error: error instanceof Error ? error.message : String(error),
+            stack: error instanceof Error ? error.stack : undefined
+        });
+
         return NextResponse.json({
-            error: 'Failed to fetch subscription details',
-            message: error instanceof Error ? error.message : String(error)
+            error: 'Failed to fetch subscription details'
         }, { status: 500 });
     }
 }
 
+// POST handler for checking subscription status after checkout
 export async function POST(req: NextRequest) {
     try {
         // Get current user from session
@@ -144,7 +164,7 @@ export async function POST(req: NextRequest) {
                     $set: {
                         tier,
                         stripeSubscriptionId: subscription.id,
-                        stripeCustomerId: subscription.customer,
+                        stripeCustomerId: subscription.customer as string,
                         subscriptionStatus: subscription.status,
                         updatedAt: new Date()
                     },
@@ -181,7 +201,7 @@ export async function POST(req: NextRequest) {
                     $set: {
                         tier,
                         stripeSubscriptionId: subscription.id,
-                        stripeCustomerId: subscription.customer,
+                        stripeCustomerId: subscription.customer as string,
                         subscriptionStatus: subscription.status,
                         updatedAt: new Date()
                     },
@@ -215,7 +235,7 @@ export async function POST(req: NextRequest) {
 }
 
 // Helper function to determine tier from price ID
-function getTierFromPriceId(priceId: string): string {
+function getTierFromPriceId(priceId: string | undefined): string {
     if (!priceId) return 'free';
 
     const tierMap: { [key: string]: string } = {
