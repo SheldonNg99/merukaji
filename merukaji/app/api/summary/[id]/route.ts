@@ -1,40 +1,38 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/authOptions';
-import clientPromise from '@/lib/mongodb';
-import { ObjectId } from 'mongodb';
+import { supabaseAdmin } from '@/lib/supabase';
 
 export async function GET(req: NextRequest) {
     const id = req.nextUrl.pathname.split('/').pop();
+    const session = await getServerSession(authOptions);
 
-    if (!id || !ObjectId.isValid(id)) {
-        return NextResponse.json({ error: 'Invalid summary ID format' }, { status: 400 });
+    if (!id) {
+        return NextResponse.json({ error: 'Invalid summary ID' }, { status: 400 });
     }
 
-    const session = await getServerSession(authOptions);
     if (!session || !session.user) {
         return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
     }
 
-    const client = await clientPromise;
-    const db = client.db();
+    const { data, error } = await supabaseAdmin
+        .from('summaries')
+        .select('*')
+        .eq('id', id)
+        .eq('user_id', session.user.id)
+        .single();
 
-    const summary = await db.collection('summaries').findOne({
-        _id: new ObjectId(id),
-        userId: session.user.id
-    });
-
-    if (!summary) {
-        return NextResponse.json({ error: 'Summary not found' }, { status: 404 });
+    if (error) {
+        return NextResponse.json({ error: "Summary not found" }, { status: 404 });
     }
 
     return NextResponse.json({
         success: true,
-        id: summary._id.toString(),
-        summary: summary.summary,
-        metadata: summary.metadata,
-        timestamp: summary.createdAt.toISOString(),
-        provider: summary.provider,
-        summaryType: summary.summaryType
+        id: data.id,
+        summary: data.summary,
+        metadata: data.metadata,
+        timestamp: data.created_at,
+        provider: data.provider,
+        summaryType: data.summary_type,
     });
 }

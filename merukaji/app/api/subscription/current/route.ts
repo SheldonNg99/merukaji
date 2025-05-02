@@ -1,43 +1,39 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/authOptions';
-import clientPromise from '@/lib/mongodb';
+import { supabaseAdmin } from '@/lib/supabase';
 import { logger } from '@/lib/logger';
 
 export async function GET(req: NextRequest) {
-    try {
-
-        logger.info('current subscription requested', {
-            method: req.method
-        });
-
-        const session = await getServerSession(authOptions);
-        if (!session || !session.user) {
-            return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
-        }
-
-        const client = await clientPromise;
-        const db = client.db();
-
-        // Get user's subscription details
-        const user = await db.collection('users').findOne({ email: session.user.email });
-
-        if (!user) {
-            return NextResponse.json({ error: 'User not found' }, { status: 404 });
-        }
-
-        // Get subscription details
-        const subscription = user.stripeSubscriptionId ?
-            await db.collection('subscriptions').findOne({ id: user.stripeSubscriptionId }) : null;
-
-        return NextResponse.json({
-            tier: user.tier || 'free',
-            billingCycle: subscription?.billingCycle || null,
-            subscriptionId: user.stripeSubscriptionId || null,
-            status: user.subscriptionStatus || null
-        });
-    } catch (error) {
-        console.error('Error fetching subscription:', error);
-        return NextResponse.json({ error: 'Failed to fetch subscription details' }, { status: 500 });
+    const session = await getServerSession(authOptions);
+    if (!session?.user) {
+        return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
     }
+
+    logger.info('subscription route requested', {
+        method: req.method
+    });
+
+    const { data: user, error } = await supabaseAdmin
+        .from('users')
+        .select('tier, subscription_status, stripe_subscription_id')
+        .eq('id', session.user.id)
+        .single();
+
+    if (error || !user) {
+        return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    }
+
+    const { data: subscription } = await supabaseAdmin
+        .from('subscriptions')
+        .select('billing_cycle')
+        .eq('id', user.stripe_subscription_id)
+        .single();
+
+    return NextResponse.json({
+        tier: user.tier,
+        status: user.subscription_status,
+        subscriptionId: user.stripe_subscription_id,
+        billingCycle: subscription?.billing_cycle || null
+    });
 }

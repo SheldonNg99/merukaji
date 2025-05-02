@@ -1,48 +1,46 @@
-// app/api/history/route.ts
-import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/authOptions';
-import clientPromise from '@/lib/mongodb';
-import { logger } from '@/lib/logger';
+import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/authOptions";
+import { supabaseAdmin } from "@/lib/supabase";
+import { logger } from "@/lib/logger";
 
 export async function GET(req: NextRequest) {
-    // Get current user from session
     const session = await getServerSession(authOptions);
+
     if (!session || !session.user) {
-        return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+        return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }
 
     try {
-        const client = await clientPromise;
-        const db = client.db();
 
-        logger.info('History received', {
+        logger.info('history route requested', {
             method: req.method
         });
 
-        // Get summaries for this user, sorted by creation date (newest first)
-        const summaries = await db.collection('summaries')
-            .find({ userId: session.user.id })
-            .sort({ createdAt: -1 })
-            .limit(20) // Limit to latest 20 summaries
-            .toArray();
+        const { data: summaries, error } = await supabaseAdmin
+            .from("summaries")
+            .select("id, metadata->>title")
+            .eq("user_id", session.user.id)
+            .order("created_at", { ascending: false })
+            .limit(20);
 
-        // Transform to simpler format matching our UI design
-        const transformedSummaries = summaries.map(summary => ({
-            id: summary._id.toString(),
-            title: summary.metadata?.title || 'Untitled Video',
+        if (error) {
+            logger.error("Error fetching history", { error: error.message });
+            return NextResponse.json({ error: "Failed to fetch history" }, { status: 500 });
+        }
+
+        const transformedSummaries = summaries.map((item) => ({
+            id: item.id,
+            title: item.title || "Untitled Video",
         }));
 
         return NextResponse.json({
             success: true,
             count: transformedSummaries.length,
-            summaries: transformedSummaries
+            summaries: transformedSummaries,
         });
-
-    } catch (error) {
-        console.error('Error fetching history:', error);
-        return NextResponse.json({
-            error: 'Failed to fetch history'
-        }, { status: 500 });
+    } catch (err) {
+        logger.error("History request failed", { error: err instanceof Error ? err.message : String(err) });
+        return NextResponse.json({ error: "Internal server error" }, { status: 500 });
     }
 }

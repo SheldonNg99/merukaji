@@ -1,58 +1,56 @@
 import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
-import clientPromise from "@/lib/mongodb";
+import { supabaseAdmin } from "@/lib/supabase";
 import { logger } from "@/lib/logger";
 
 export async function POST(req: NextRequest) {
     try {
         const { email, name, password } = await req.json();
 
-        // Validate input
         if (!email || !name || !password) {
-            return NextResponse.json(
-                { error: "Missing required fields" },
-                { status: 400 }
-            );
+            return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
         }
 
-        // Connect to database
-        const client = await clientPromise;
-        const db = client.db();
-
         // Check if user already exists
-        const existingUser = await db.collection("users").findOne({ email });
+        const { data: existingUser, error: userError } = await supabaseAdmin
+            .from("users")
+            .select("id")
+            .eq("email", email)
+            .single();
+
+        if (userError && userError.code !== "PGRST116") { // 'No rows found' is acceptable here
+            logger.error("Error checking existing user", { error: userError.message });
+            return NextResponse.json({ error: "Failed to check user" }, { status: 500 });
+        }
+
         if (existingUser) {
-            return NextResponse.json(
-                { error: "User already exists" },
-                { status: 400 }
-            );
+            return NextResponse.json({ error: "User already exists" }, { status: 400 });
         }
 
         // Hash password
         const hashedPassword = await bcrypt.hash(password, 10);
 
         // Create user
-        const result = await db.collection("users").insertOne({
+        const { data, error } = await supabaseAdmin.from("users").insert({
             email,
             name,
             password: hashedPassword,
             tier: "free",
-            createdAt: new Date(),
-        });
+        }).select("id").single();
+
+        if (error) {
+            logger.error("Error registering user", { error: error.message });
+            return NextResponse.json({ error: "Failed to register user" }, { status: 500 });
+        }
 
         logger.info("User registered successfully", { email });
 
         return NextResponse.json({
             success: true,
-            userId: result.insertedId.toString(),
+            userId: data.id,
         });
-    } catch (error) {
-        logger.error("Error registering user", {
-            error: error instanceof Error ? error.message : String(error),
-        });
-        return NextResponse.json(
-            { error: "Failed to register user" },
-            { status: 500 }
-        );
+    } catch (err) {
+        logger.error("Registration failed", { error: err instanceof Error ? err.message : String(err) });
+        return NextResponse.json({ error: "Internal server error" }, { status: 500 });
     }
 }
