@@ -1,3 +1,4 @@
+// app/components/providers.tsx
 'use client';
 
 import { SessionProvider } from "next-auth/react";
@@ -10,7 +11,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
         <>
             {/* Add the ThemeScript before any React hydration */}
             <ThemeScript />
-            <SessionProvider>
+            <SessionProvider refetchInterval={0} refetchOnWindowFocus={false}>
                 <ThemeProvider>
                     <ToastProvider>
                         {children}
