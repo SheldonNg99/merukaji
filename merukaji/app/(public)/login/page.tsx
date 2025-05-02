@@ -61,7 +61,15 @@ export default function Login() {
     };
 
     const handleGoogleSignIn = () => {
-        signIn('google', { callbackUrl: '/home' });
+        // Add debugging to track Google authentication flow
+        console.log('Starting Google sign in process');
+        signIn('google', { callbackUrl: '/home' })
+            .then(result => {
+                console.log('Google sign in result:', result);
+            })
+            .catch(error => {
+                console.error('Google sign in error:', error);
+            });
     };
 
     return (
