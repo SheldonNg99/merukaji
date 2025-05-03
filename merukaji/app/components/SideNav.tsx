@@ -24,27 +24,32 @@ export default function SideNav({ isDesktopSidebarOpen, onDesktopSidebarChange }
 
     const { data: session } = useSession();
 
-    // Mark component as mounted
+    // Fetch history function
+    const fetchHistory = async () => {
+        try {
+            const response = await fetch('/api/history');
+            if (response.ok) {
+                const data = await response.json();
+                setHistoryItems(data.summaries || []);
+            }
+        } catch (error) {
+            console.error('Failed to fetch history:', error);
+        }
+    };
+
     useEffect(() => {
         setMounted(true);
-
-        // Fetch history data when the component mounts
-        const fetchHistory = async () => {
-            try {
-                const response = await fetch('/api/history');
-                if (response.ok) {
-                    const data = await response.json();
-                    setHistoryItems(data.summaries || []);
-                }
-            } catch (error) {
-                console.error('Failed to fetch history:', error);
-            }
-        };
 
         if (session?.user) {
             fetchHistory();
         }
     }, [session]);
+
+    useEffect(() => {
+        if (session?.user) {
+            fetchHistory();
+        }
+    }, [pathname, session?.user]);
 
     // Add click away listener to close dropdown
     useEffect(() => {
@@ -213,7 +218,9 @@ export default function SideNav({ isDesktopSidebarOpen, onDesktopSidebarChange }
                                         <div>
                                             <span>Plan Details</span>
                                             <span className="ml-2 px-2 py-0.5 text-xs font-medium bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 rounded-full">
-                                                {session?.user?.tier ? session.user.tier.charAt(0).toUpperCase() + session.user.tier.slice(1) : 'Free'}
+                                                {session?.user?.tier
+                                                    ? session.user.tier.charAt(0).toUpperCase() + session.user.tier.slice(1)
+                                                    : 'Free'}
                                             </span>
                                         </div>
                                     </li>

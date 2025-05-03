@@ -8,6 +8,7 @@ import SummaryResultsPage from '@/app/components/SummaryResultsPage';
 import { VideoMetadata } from '@/types/youtube';
 import AIModelDropdown from '@/app/components/AIModelDropdown';
 import { AIModelType } from '@/types/ai-models';
+import { useRouter } from 'next/navigation';
 
 export default function HomePage() {
     const { showToast } = useToast();
@@ -18,6 +19,7 @@ export default function HomePage() {
     const [, setError] = useState<string | null>(null);
     const [selectedModel, setSelectedModel] = useState<AIModelType>('google');
     const [, setMounted] = useState(false);
+    const router = useRouter();
     const [summaryData, setSummaryData] = useState<{
         summary: string;
         metadata: VideoMetadata;
@@ -66,6 +68,7 @@ export default function HomePage() {
             setResult(data);
 
             // Then generate summary
+            // Then generate summary
             setIsSummarizing(true);
 
             const summaryResponse = await fetch('/api/summarize', {
@@ -83,10 +86,8 @@ export default function HomePage() {
             const summaryData = await summaryResponse.json();
 
             if (!summaryResponse.ok) {
-                // Handle rate limits and errors as before
                 if (summaryResponse.status === 429) {
                     setRateLimits(summaryData.limits);
-                    // Show toast for rate limiting
                     if (summaryData.error.includes('Daily limit exceeded')) {
                         showToast(
                             `Daily limit reached (${summaryData.limits.daily}/3). Please upgrade for more summaries.`,
@@ -105,27 +106,19 @@ export default function HomePage() {
                     return;
                 }
 
-                // Handle other errors with toast
                 showToast(summaryData.error || 'Failed to generate summary', 'error');
                 setIsSummarizing(false);
                 setIsLoading(false);
                 return;
             }
 
-            // Instead of redirecting, set the summary data to display on the page
-            setSummaryData({
-                summary: summaryData.summary,
-                metadata: summaryData.metadata,
-                timestamp: new Date().toISOString(),
-                provider: summaryData.provider
-            });
-
-            // Show success toast
             if (summaryData.cached) {
                 showToast('Summary retrieved from cache', 'info', 2000);
             } else {
                 showToast('Summary generated successfully', 'success', 2000);
             }
+
+            router.push(`/summary/${summaryData.id}`);
 
             setIsSummarizing(false);
             setIsLoading(false);

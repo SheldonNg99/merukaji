@@ -7,12 +7,12 @@ export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
 
 export const PRICE_IDS = {
     pro: {
-        monthly: process.env.STRIPE_PRO_MONTHLY_PRICE_ID!,
-        yearly: process.env.STRIPE_PRO_YEARLY_PRICE_ID!,
+        monthly: process.env.NEXT_PUBLIC_STRIPE_PRO_MONTHLY_PRICE_ID || '',
+        yearly: process.env.NEXT_PUBLIC_STRIPE_PRO_YEARLY_PRICE_ID || '',
     },
     max: {
-        monthly: process.env.STRIPE_MAX_MONTHLY_PRICE_ID!,
-        yearly: process.env.STRIPE_MAX_YEARLY_PRICE_ID!,
+        monthly: process.env.NEXT_PUBLIC_STRIPE_MAX_MONTHLY_PRICE_ID || '',
+        yearly: process.env.NEXT_PUBLIC_STRIPE_MAX_YEARLY_PRICE_ID || '',
     },
 };
 
