@@ -1,5 +1,4 @@
-import { SupabaseAdapter } from "@auth/supabase-adapter";
-import NextAuth, { AuthOptions } from "next-auth";
+import { AuthOptions } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { createClient } from '@supabase/supabase-js';
@@ -10,25 +9,48 @@ const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
 async function getUserByEmail(email: string) {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
-    const { data, error } = await supabase
-        .from('users')
-        .select('*')
-        .eq('email', email)
-        .single();
 
-    if (error) {
-        console.error('Error fetching user:', error);
+    try {
+        const { data, error } = await supabase
+            .from('users')
+            .select('*')
+            .eq('email', email)
+            .single();
+
+        if (error) {
+            console.error('Error fetching user:', error);
+            return null;
+        }
+
+        return data;
+    } catch (err) {
+        console.error('Exception in getUserByEmail:', err);
         return null;
     }
-
-    return data;
 }
 
+// Test DB Connection
+const testSupabase = async () => {
+    try {
+        const supabase = createClient(supabaseUrl, supabaseServiceKey);
+        const { data, error } = await supabase.from('users').select('count');
+        if (error) {
+            console.error("Supabase connection test failed:", error);
+            return false;
+        }
+        console.log("Supabase connection test succeeded. User count:", data);
+        return true;
+    } catch (e) {
+        console.error("Supabase connection error:", e);
+        return false;
+    }
+};
+
+// Test the connection immediately
+testSupabase();
+
 export const authOptions: AuthOptions = {
-    adapter: SupabaseAdapter({
-        url: supabaseUrl,
-        secret: supabaseServiceKey,
-    }),
+    // Remove the adapter for now to simplify our approach
     providers: [
         GoogleProvider({
             clientId: process.env.GOOGLE_CLIENT_ID!,
@@ -57,35 +79,47 @@ export const authOptions: AuthOptions = {
                     throw new Error("No user found");
                 }
 
-                const isValid = await compare(credentials.password, user.password);
-                if (!isValid) {
-                    throw new Error("Invalid password");
-                }
+                try {
+                    const isValid = await compare(credentials.password, user.password);
+                    if (!isValid) {
+                        throw new Error("Invalid password");
+                    }
 
-                return {
-                    id: user.id.toString(),
-                    email: user.email,
-                    name: user.name,
-                    tier: user.tier || 'free',
-                };
+                    return {
+                        id: user.id.toString(),
+                        email: user.email,
+                        name: user.name,
+                        tier: user.tier || 'free',
+                    };
+                } catch (err) {
+                    console.error("Error in password comparison:", err);
+                    throw new Error("Authentication error");
+                }
             },
         }),
     ],
     callbacks: {
         async signIn({ user, account }) {
+            console.log("Sign in callback for user:", user.email, "with account provider:", account?.provider);
+
             try {
                 if (account?.provider === 'google') {
                     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
                     // Check if user exists
-                    const { data: existingUser } = await supabase
+                    const { data: existingUser, error: userError } = await supabase
                         .from('users')
-                        .select('*')
+                        .select('id, tier')
                         .eq('email', user.email)
                         .single();
 
+                    if (userError && userError.code !== 'PGRST116') { // Not "No rows found"
+                        console.error('Error checking existing user:', userError);
+                    }
+
                     if (!existingUser) {
                         // Create new user
+                        console.log("Creating new user with email:", user.email);
                         const { data, error } = await supabase
                             .from('users')
                             .insert({
@@ -94,7 +128,7 @@ export const authOptions: AuthOptions = {
                                 tier: 'free',
                                 created_at: new Date().toISOString(),
                             })
-                            .select()
+                            .select('id, tier')
                             .single();
 
                         if (error) {
@@ -112,7 +146,7 @@ export const authOptions: AuthOptions = {
                 return true;
             } catch (error) {
                 console.error("SignIn callback error:", error);
-                return true;
+                return true; // Still allow sign in even if there's an error
             }
         },
         async jwt({ token, user }) {
@@ -139,11 +173,9 @@ export const authOptions: AuthOptions = {
         error: '/login',
     },
     session: {
-        strategy: "jwt",
+        strategy: "jwt", // Use JWT strategy - simpler and more reliable for our needs
         maxAge: 30 * 24 * 60 * 60,
     },
     secret: process.env.NEXTAUTH_SECRET,
+    debug: process.env.NODE_ENV === "development",
 };
-
-const handler = NextAuth(authOptions);
-export { handler as GET, handler as POST };
