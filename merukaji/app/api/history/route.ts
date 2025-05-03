@@ -13,7 +13,7 @@ export async function GET(req: NextRequest) {
 
     try {
 
-        logger.info('history route requested', {
+        logger.info('history route requested hello', {
             method: req.method
         });
 
