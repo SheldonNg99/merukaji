@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { CreditCard, User, Moon, Sun } from 'lucide-react';
 import { ThemeToggle } from './ThemeToggle';
 import { useToast } from '@/app/components/contexts/ToastContext';
@@ -14,38 +14,65 @@ export default function SettingsPage() {
     const [userData, setUserData] = useState<UserSettings | null>(null);
     const [name, setName] = useState('');
     const [bio, setBio] = useState('');
+    const [fetchError, setFetchError] = useState<string | null>(null);
+    const [fetchAttempted, setFetchAttempted] = useState(false);
+    const [originalName, setOriginalName] = useState('');
+    const [originalBio, setOriginalBio] = useState('');
 
     const { showToast } = useToast();
 
-    useEffect(() => {
-        const fetchUserData = async () => {
-            try {
-                setIsLoading(true);
-                const response = await fetch('/api/settings/user');
+    const fetchUserData = useCallback(async () => {
+        if (fetchAttempted) return;
 
-                if (!response.ok) {
-                    throw new Error('Failed to fetch user settings');
-                }
+        try {
+            setIsLoading(true);
+            setFetchError(null);
 
-                const data = await response.json();
+            const response = await fetch('/api/settings/user');
 
-                if (data.success && data.user) {
-                    setUserData(data.user);
-                    setName(data.user.name || '');
-                    setBio(data.user.bio || '');
-                }
-            } catch (error) {
-                showToast('Failed to load user settings', 'error');
-                console.error('Error fetching user settings:', error);
-            } finally {
-                setIsLoading(false);
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Failed to fetch user settings');
             }
-        };
 
+            const data = await response.json();
+
+            if (data.success && data.user) {
+                setUserData(data.user);
+
+                const userName = data.user.name || '';
+                const userBio = data.user.bio || '';
+
+                setName(userName);
+                setBio(userBio);
+                setOriginalName(userName);
+                setOriginalBio(userBio);
+            }
+        } catch (error) {
+            const message = error instanceof Error ? error.message : 'Failed to load user settings';
+            setFetchError(message);
+            showToast(message, 'error');
+            console.error('Error fetching user settings:', error);
+        } finally {
+            setIsLoading(false);
+            setFetchAttempted(true);
+        }
+    }, [showToast, fetchAttempted]);
+
+
+    const hasChanges = useCallback(() => {
+        return name !== originalName || bio !== originalBio;
+    }, [name, bio, originalName, originalBio]);
+
+    useEffect(() => {
         fetchUserData();
-    }, [showToast]);
 
-    // Save user settings
+        // Cleanup function
+        return () => {
+            // Any cleanup needed
+        };
+    }, [fetchUserData]);
+
     const handleSaveChanges = async () => {
         try {
             setIsSaving(true);
@@ -61,15 +88,19 @@ export default function SettingsPage() {
                 }),
             });
 
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.error || 'Failed to update settings');
-            }
-
             const data = await response.json();
 
+            if (!response.ok) {
+                throw new Error(data.error || 'Failed to update settings');
+            }
+
             if (data.success) {
+                // Update original values to match current values after successful save
+                setOriginalName(name);
+                setOriginalBio(bio);
+
                 showToast('Settings updated successfully', 'success');
+                setUserData(prev => prev ? { ...prev, name, bio } : null);
             }
         } catch (error) {
             showToast(
@@ -82,6 +113,11 @@ export default function SettingsPage() {
         }
     };
 
+    // Handle retry if there was an error
+    const handleRetry = () => {
+        setFetchAttempted(false); // Reset so we can try again
+        fetchUserData();
+    };
 
     return (
         <div className="w-full min-h-screen bg-[#fffefe] dark:bg-[#202120] ">
@@ -138,6 +174,16 @@ export default function SettingsPage() {
                                     <div className="flex items-center justify-center py-12">
                                         <div className="w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full animate-spin"></div>
                                     </div>
+                                ) : fetchError ? (
+                                    <div className="flex flex-col items-center py-12 text-center">
+                                        <p className="text-red-500 mb-4">{fetchError}</p>
+                                        <button
+                                            onClick={handleRetry}
+                                            className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg transition-colors shadow-sm"
+                                        >
+                                            Retry
+                                        </button>
+                                    </div>
                                 ) : (
                                     <div className="space-y-6">
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -187,8 +233,9 @@ export default function SettingsPage() {
                                         <div className="flex justify-end">
                                             <button
                                                 onClick={handleSaveChanges}
-                                                disabled={isSaving}
-                                                className={`px-5 py-2.5 bg-orange-500 hover:bg-orange-600 text-white rounded-lg transition-colors shadow-sm ${isSaving ? 'opacity-70 cursor-not-allowed' : ''}`}
+                                                disabled={isSaving || !hasChanges()}
+                                                className={`px-5 py-2.5 bg-orange-500 hover:bg-orange-600 text-white rounded-lg transition-colors shadow-sm ${(isSaving || !hasChanges()) ? 'opacity-70 cursor-not-allowed' : ''
+                                                    }`}
                                             >
                                                 {isSaving ? 'Saving...' : 'Save changes'}
                                             </button>
