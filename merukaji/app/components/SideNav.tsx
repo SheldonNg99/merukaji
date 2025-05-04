@@ -90,12 +90,13 @@ export default function SideNav({ isDesktopSidebarOpen, onDesktopSidebarChange }
 
     return (
         <>
-            {/* Mobile Toggle Button */}
+            {/* Mobile Toggle Button - Adjusted positioning and padding */}
             <button
                 onClick={() => setIsMobileOpen(true)}
-                className="lg:hidden fixed top-5 left-4 z-50 text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors"
+                className="lg:hidden fixed top-4 left-4 z-50 text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors p-2"
+                aria-label="Open menu"
             >
-                <AlignRight className={`h-6 w-6 transform transition-transform duration-300`} />
+                <AlignRight className="h-6 w-6 transform transition-transform duration-300" />
             </button>
 
             {/* Overlay for mobile */}
@@ -115,13 +116,14 @@ export default function SideNav({ isDesktopSidebarOpen, onDesktopSidebarChange }
                 flex flex-col
                 border-r border-gray-200 dark:border-gray-700
             `}>
-                {/* Header with Toggle Buttons */}
-                <div className={`h-16 flex items-center border-b border-gray-200 dark:border-gray-700 bg-[#f8faff] dark:bg-[#202120] ${isMobileOpen ? 'p-4' : ''}`}>
+                {/* Header with Toggle Buttons - Consistent padding with mobile toggle */}
+                <div className="h-16 flex items-center border-b border-gray-200 dark:border-gray-700 bg-[#f8faff] dark:bg-[#202120]">
                     <div className={`flex items-center w-full ${!isDesktopSidebarOpen ? 'lg:justify-center' : 'px-4'}`}>
-                        {/* Mobile Toggle */}
+                        {/* Mobile Toggle - Aligned with the mobile button */}
                         <button
                             onClick={() => setIsMobileOpen(false)}
-                            className="lg:hidden text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors"
+                            className="lg:hidden p-2 text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors"
+                            aria-label="Close menu"
                         >
                             <AlignLeft className="h-6 w-6" />
                         </button>
@@ -129,13 +131,14 @@ export default function SideNav({ isDesktopSidebarOpen, onDesktopSidebarChange }
                         {/* Desktop Toggle */}
                         <button
                             onClick={() => onDesktopSidebarChange(!isDesktopSidebarOpen)}
-                            className="hidden lg:flex text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors"
+                            className="hidden lg:flex p-2 text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors"
+                            aria-label={isDesktopSidebarOpen ? "Collapse sidebar" : "Expand sidebar"}
                         >
-                            <AlignRight className={`h-6 w-6 transform transition-transform duration-300 ${isDesktopSidebarOpen ? <AlignLeft className={`h-6 w-6 transform transition-transform duration-300`} /> : ''}`} />
+                            <AlignRight className={`h-6 w-6 transform transition-transform duration-300 ${isDesktopSidebarOpen ? <AlignLeft className="h-6 w-6 transform transition-transform duration-300" /> : ''}`} />
                         </button>
 
                         {/* Make the title a link to the home page */}
-                        <Link href="/home" className={`text-xl font-medium text-gray-900 dark:text-white ml-4 hover:text-orange-500 dark:hover:text-orange-400 transition-colors ${!isDesktopSidebarOpen ? 'lg:hidden' : ''}`}>
+                        <Link href="/home" className={`text-xl font-medium text-gray-900 dark:text-white ml-2 hover:text-orange-500 dark:hover:text-orange-400 transition-colors ${!isDesktopSidebarOpen ? 'lg:hidden' : ''}`}>
                             Merukaji
                         </Link>
                     </div>
@@ -143,7 +146,7 @@ export default function SideNav({ isDesktopSidebarOpen, onDesktopSidebarChange }
 
                 {/* History Section with minimalist styling */}
                 <div className="flex-1 overflow-y-auto" style={sidebarScrollStyle}>
-                    <div className={`pt-4 ${!isDesktopSidebarOpen ? 'lg:px-2' : 'px-2'}`}>
+                    <div className={`pt-4 ${!isDesktopSidebarOpen ? 'lg:px-2' : 'px-4'}`}>
                         <h2 className={`flex text-sm font-medium text-gray-800 dark:text-white mb-2 px-2
                             ${!isDesktopSidebarOpen ? 'lg:hidden' : ''}`}>
                             Recents
