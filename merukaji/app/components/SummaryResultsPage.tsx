@@ -1,16 +1,53 @@
 import React, { useState, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, Copy, Clock, Bookmark, ExternalLink, ThumbsUp, Flag, Plus, Download, Share2, Tag } from 'lucide-react';
+import { Copy, Clock, Bookmark, ExternalLink, Plus, Download, RefreshCw, Lock } from 'lucide-react';
 import Image from 'next/image';
 import { SummaryResultsPageProps } from '@/types/summary';
 import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
+import { useToast } from '@/app/components/contexts/ToastContext';
 
-const SummaryResultsPage = ({ summary, metadata, timestamp, provider }: SummaryResultsPageProps) => {
-    const [currentPage, setCurrentPage] = useState(1);
-    const [copied, setCopied] = useState(false);
+const SummaryResultsPage = ({ summary, metadata, timestamp }: SummaryResultsPageProps) => {
+    const [, setCopied] = useState(false);
     const [bookmarked, setBookmarked] = useState(false);
-    const [liked, setLiked] = useState(false);
-    const [showHighlights, setShowHighlights] = useState(true);
+    const [activeTab, setActiveTab] = useState('summary');
     const router = useRouter();
+    const { data: session } = useSession();
+    const { showToast } = useToast();
+
+    useEffect(() => {
+        // Add custom scrollbar styles
+        const style = document.createElement('style');
+        style.textContent = `
+            .custom-scrollbar::-webkit-scrollbar {
+                width: 8px;
+                height: 8px;
+            }
+            .custom-scrollbar::-webkit-scrollbar-track {
+                background: transparent;
+            }
+            .custom-scrollbar::-webkit-scrollbar-thumb {
+                background: #ccc;
+                border-radius: 4px;
+            }
+            .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+                background: #aaa;
+            }
+            .dark .custom-scrollbar::-webkit-scrollbar-thumb {
+                background: #555;
+            }
+            .dark .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+                background: #777;
+            }
+        `;
+        document.head.appendChild(style);
+
+        return () => {
+            document.head.removeChild(style);
+        };
+    }, []);
+
+    // Check if user can copy (Pro and Max tiers only)
+    const canCopy = session?.user?.tier && ['pro', 'max'].includes(session.user.tier.toLowerCase());
 
     // Format the timestamp
     const formatDate = (timestamp: string | null | undefined): string => {
@@ -24,7 +61,6 @@ const SummaryResultsPage = ({ summary, metadata, timestamp, provider }: SummaryR
     };
 
     // Extract key points/highlights from summary
-    // Extract key points/highlights from summary
     const extractHighlights = (text: string): string[] => {
         if (!text) return [];
 
@@ -37,7 +73,6 @@ const SummaryResultsPage = ({ summary, metadata, timestamp, provider }: SummaryR
         }
 
         // If no bullet points, extract sentences that might be key points
-        // (sentences with key phrases like "important", "key", "main", etc.)
         const sentenceRegex = /[^.!?]+[.!?]+/g;
         const sentences = Array.from(text.matchAll(sentenceRegex)).map(m => m[0].trim());
 
@@ -52,15 +87,71 @@ const SummaryResultsPage = ({ summary, metadata, timestamp, provider }: SummaryR
             : sentences.slice(0, Math.min(5, sentences.length));
     };
 
-    // Split summary into pages (paragraphs)
-    const paragraphs = summary ? summary.split('\n\n').filter(p => p.trim().length > 0) : [];
-    const pagesCount = Math.max(1, paragraphs.length);
+    // Format summary for display
+    const formatSummaryForDisplay = (text: string): React.ReactNode[] => {
+        if (!text) return [];
+
+        // Split into sections based on **Section headers**
+        const sectionRegex = /(?:\*\*(.+?)\*\*)\s*((?:.|\n)*?)(?=\n\s*\*\*|$)/g;
+        const matches = Array.from(text.matchAll(sectionRegex));
+
+        return matches.map(([, header, body], index) => {
+            const paragraphs = body.trim().split(/\n\n+/);
+
+            return (
+                <div key={index} className="mb-6">
+                    <h3 className="text-base font-medium text-gray-900 dark:text-white mb-3">
+                        <span className="text-orange-500 mr-2">•</span>{header}
+                    </h3>
+
+                    {paragraphs.map((paragraph, pIndex) => {
+                        const lines = paragraph.split('\n');
+
+                        return (
+                            <div key={`p-${pIndex}`} className="mb-4">
+                                {lines.map((line, lineIndex) => {
+                                    const bulletMatch = line.match(/^\s*([-•*]|\d+\.)\s*(.+)$/);
+
+                                    if (bulletMatch) {
+                                        return (
+                                            <div key={`line-${lineIndex}`} className="flex items-start mb-2 ml-2">
+                                                <div className="flex-shrink-0 h-2 w-2 rounded-full bg-orange-400 mt-2 mr-2"></div>
+                                                <p className="text-gray-800 dark:text-gray-200">
+                                                    {bulletMatch[2]}
+                                                </p>
+                                            </div>
+                                        );
+                                    }
+
+                                    return (
+                                        <p key={`line-${lineIndex}`} className="text-gray-800 dark:text-gray-200 mb-2">
+                                            {line}
+                                        </p>
+                                    );
+                                })}
+                            </div>
+                        );
+                    })}
+                </div>
+            );
+        });
+    };
+
+
     const highlights = extractHighlights(summary);
+    const formattedSummary = formatSummaryForDisplay(summary);
 
     const handleCopy = () => {
+        // Free users see upgrade prompt instead of copying
+        if (!canCopy) {
+            showToast('Upgrade to Pro or Max to copy summaries', 'info', 5000);
+            return;
+        }
+
         if (summary) {
             navigator.clipboard.writeText(summary);
             setCopied(true);
+            showToast('Summary copied to clipboard', 'success', 2000);
             setTimeout(() => setCopied(false), 2000);
         }
     };
@@ -69,11 +160,13 @@ const SummaryResultsPage = ({ summary, metadata, timestamp, provider }: SummaryR
         setBookmarked(!bookmarked);
     };
 
-    const handleLike = () => {
-        setLiked(!liked);
-    };
-
     const handleDownloadAsTxt = () => {
+        // Free users see upgrade prompt instead of downloading
+        if (!canCopy) {
+            showToast('Upgrade to Pro or Max to download summaries', 'info', 5000);
+            return;
+        }
+
         if (!summary) return;
 
         const element = document.createElement('a');
@@ -84,25 +177,6 @@ const SummaryResultsPage = ({ summary, metadata, timestamp, provider }: SummaryR
         element.click();
         document.body.removeChild(element);
     };
-
-    // Next page
-    const nextPage = () => {
-        if (currentPage < pagesCount) {
-            setCurrentPage(currentPage + 1);
-        }
-    };
-
-    // Previous page
-    const prevPage = () => {
-        if (currentPage > 1) {
-            setCurrentPage(currentPage - 1);
-        }
-    };
-
-    useEffect(() => {
-        // Reset to page 1 when a new summary is loaded
-        setCurrentPage(1);
-    }, [summary]);
 
     if (!summary) {
         return (
@@ -120,233 +194,173 @@ const SummaryResultsPage = ({ summary, metadata, timestamp, provider }: SummaryR
     }
 
     return (
-        <div className="w-full min-h-screen bg-[#f8f9fa] dark:bg-[#202120] py-8">
-            <div className="w-full max-w-5xl mx-auto px-4">
-                {/* Top Action Bar */}
-                <div className="mb-6 flex justify-end items-center">
+        <div className="w-full min-h-screen bg-[#f8f9fa] dark:bg-[#202120]">
+            <div className="max-w-screen-xl mx-auto px-4 sm:px-6 py-4">
+                {/* Top header with New Summary button */}
+                <div className="flex justify-end items-center mb-4">
                     <button
                         onClick={() => router.push('/home')}
-                        className="inline-flex items-center px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg transition-colors shadow-sm"
+                        className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg flex items-center transition-colors"
                     >
                         <Plus className="h-4 w-4 mr-2" />
-                        New Summary
+                        <span>New Summary</span>
                     </button>
                 </div>
 
-                {/* Video metadata card */}
-                {/* Video metadata card */}
-                {metadata && (
-                    <div className="mb-6 bg-white dark:bg-[#2E2E2E] rounded-2xl overflow-hidden shadow-sm border border-gray-100 dark:border-gray-700">
-                        <div className="flex flex-col md:flex-row">
-                            {metadata.thumbnailUrl && (
-                                <div className="md:w-64 h-48 md:h-auto flex-shrink-0 relative overflow-hidden">
+                {/* Main content - Made fully responsive with grid */}
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-4 md:gap-6">
+                    {/* Left column - Video info and key points */}
+                    <div className="md:col-span-5 lg:col-span-4">
+                        {/* Video thumbnail and info */}
+                        <div className="bg-white dark:bg-[#2E2E2E] rounded-xl overflow-hidden shadow-sm border border-gray-200 dark:border-gray-700 mb-4">
+                            <div className="aspect-video relative overflow-hidden">
+                                {metadata?.thumbnailUrl && (
                                     <Image
                                         src={metadata.thumbnailUrl}
-                                        alt={metadata.title}
-                                        width={256}
-                                        height={144}
-                                        className="object-cover w-full h-full"
+                                        alt={metadata.title || "Video thumbnail"}
+                                        fill
+                                        className="object-cover"
                                         priority
                                     />
-                                </div>
-                            )}
-                            <div className="p-6 flex-1">
-                                <div className="flex justify-between items-start">
-                                    <div>
-                                        <h1 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
-                                            {metadata.title}
-                                        </h1>
-                                        {metadata.channelTitle && (
-                                            <p className="text-gray-600 dark:text-gray-300 text-sm mb-2">
-                                                {metadata.channelTitle}
-                                            </p>
-                                        )}
-                                    </div>
-                                    <a
-                                        href={`https://www.youtube.com/watch?v=${metadata.videoId}`}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="flex items-center text-gray-500 dark:text-gray-400 hover:text-orange-500 dark:hover:text-orange-400 text-sm"
-                                    >
-                                        <ExternalLink className="h-4 w-4 mr-1" />
-                                        <span className="hidden sm:inline">Watch on YouTube</span>
-                                    </a>
-                                </div>
-                                <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-gray-500 dark:text-gray-400">
-                                    {timestamp && (
-                                        <div className="flex items-center">
-                                            <Clock className="h-4 w-4 mr-1" />
+                                )}
+                            </div>
+                            <div className="p-4">
+                                <h1 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+                                    {metadata?.title}
+                                </h1>
+                                <div className="flex flex-col space-y-2">
+                                    <p className="text-gray-600 dark:text-gray-300 text-sm">
+                                        {metadata?.channelTitle}
+                                    </p>
+                                    <div className="flex flex-wrap justify-between items-center">
+                                        <div className="flex items-center text-gray-500 dark:text-gray-400 text-sm mb-2 sm:mb-0">
+                                            <Clock className="h-4 w-4 mr-1 flex-shrink-0" />
                                             <span>Summarized {formatDate(timestamp)}</span>
                                         </div>
-                                    )}
-                                    {provider && (
-                                        <div className="flex items-center">
-                                            <div className="h-2 w-2 rounded-full bg-green-500 mr-1.5"></div>
-                                            <span>AI: {provider}</span>
-                                        </div>
-                                    )}
+                                        <a
+                                            href={`https://www.youtube.com/watch?v=${metadata?.videoId}`}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="flex items-center text-blue-500 hover:text-blue-600 text-sm"
+                                        >
+                                            <span>Watch on YouTube</span>
+                                            <ExternalLink className="h-4 w-4 ml-1 flex-shrink-0" />
+                                        </a>
+                                    </div>
                                 </div>
+                            </div>
+                        </div>
+
+                        {/* Key Points Card - Scrollable with max-height */}
+                        <div className="bg-white dark:bg-[#2E2E2E] rounded-xl border border-gray-200 dark:border-gray-700 flex flex-col mb-4 md:mb-0">
+                            <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700">
+                                <h2 className="font-medium text-gray-900 dark:text-white">Key Points</h2>
+                            </div>
+                            <div className="p-4 overflow-y-auto max-h-80 custom-scrollbar">
+                                <ul className="space-y-3">
+                                    {highlights.map((point, index) => (
+                                        <li key={index} className="flex items-start">
+                                            <div className="flex-shrink-0 h-5 w-5 bg-orange-100 dark:bg-orange-900/20 rounded-full flex items-center justify-center mr-2 mt-0.5 text-orange-500">
+                                                <span className="text-xs font-medium">{index + 1}</span>
+                                            </div>
+                                            <div className="text-gray-700 dark:text-gray-300 text-sm">
+                                                {point}
+                                            </div>
+                                        </li>
+                                    ))}
+                                </ul>
                             </div>
                         </div>
                     </div>
-                )}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    {/* Highlights panel (left sidebar) */}
-                    {highlights.length > 0 && showHighlights && (
-                        <div className="lg:col-span-1">
-                            <div className="bg-white dark:bg-[#2E2E2E] rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
-                                <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-600">
-                                    <h3 className="text-lg font-medium text-gray-900 dark:text-white">Key Points</h3>
-                                </div>
-                                <div className="p-6">
-                                    <ul className="space-y-4">
-                                        {highlights.map((point, index) => (
-                                            <li key={index} className="flex">
-                                                <div className="flex-shrink-0 h-5 w-5 rounded-full bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 flex items-center justify-center mr-3 mt-0.5">
-                                                    <span className="text-xs font-medium">{index + 1}</span>
-                                                </div>
-                                                <p className="text-gray-700 dark:text-gray-300">{point}</p>
-                                            </li>
-                                        ))}
-                                    </ul>
+
+                    {/* Right column - Summary Content */}
+                    <div className="md:col-span-7 lg:col-span-8">
+                        <div className="bg-white dark:bg-[#2E2E2E] rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden flex flex-col">
+                            {/* Tabs */}
+                            <div className="border-b border-gray-200 dark:border-gray-700">
+                                <div className="flex">
+                                    <button
+                                        onClick={() => setActiveTab('summary')}
+                                        className={`px-4 py-3 text-sm font-medium ${activeTab === 'summary'
+                                            ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-500'
+                                            : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                                            }`}
+                                    >
+                                        Summary
+                                    </button>
+                                    <button
+                                        onClick={() => setActiveTab('pdf')}
+                                        className={`px-4 py-3 text-sm font-medium ${activeTab === 'pdf'
+                                            ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-500'
+                                            : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                                            }`}
+                                    >
+                                        PDF
+                                    </button>
                                 </div>
                             </div>
-                        </div>
-                    )}
 
-                    {/* Summary content card (main content) */}
-                    <div className={showHighlights && highlights.length > 0 ? "lg:col-span-2" : "lg:col-span-3"}>
-                        <div className="bg-white dark:bg-[#2E2E2E] rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
-                            {/* Summary actions bar */}
-                            <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-600 flex justify-between items-center">
-                                <div className="flex items-center">
-                                    <div className="text-sm font-medium text-gray-700 dark:text-gray-300 mr-4">
-                                        Summary {currentPage} of {pagesCount}
-                                    </div>
-                                    {highlights.length > 0 && (
-                                        <button
-                                            onClick={() => setShowHighlights(!showHighlights)}
-                                            className="text-xs px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded transition-colors hover:bg-gray-200 dark:hover:bg-gray-600"
-                                        >
-                                            {showHighlights ? "Hide Key Points" : "Show Key Points"}
-                                        </button>
-                                    )}
-                                </div>
-                                <div className="flex items-center space-x-3">
+                            {/* Action buttons */}
+                            <div className="flex justify-end items-center px-4 py-2 border-b border-gray-200 dark:border-gray-700">
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        onClick={handleCopy}
+                                        className="p-1.5 rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-[#383838]"
+                                        title={canCopy ? "Copy to clipboard" : "Premium feature"}
+                                    >
+                                        {canCopy ? (
+                                            <Copy className="h-4 w-4" />
+                                        ) : (
+                                            <div className="relative">
+                                                <Copy className="h-4 w-4" />
+                                                <Lock className="h-3 w-3 absolute -top-1 -right-1 text-orange-500" />
+                                            </div>
+                                        )}
+                                    </button>
                                     <button
                                         onClick={handleBookmark}
-                                        className={`p-1.5 rounded-lg transition-colors ${bookmarked
-                                            ? 'text-orange-500 bg-orange-50 dark:bg-orange-900/20'
-                                            : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-[#383838]'
-                                            }`}
-                                        title={bookmarked ? "Bookmarked" : "Add to bookmarks"}
+                                        className="p-1.5 rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-[#383838]"
                                     >
                                         <Bookmark className="h-4 w-4" />
                                     </button>
                                     <button
-                                        onClick={handleCopy}
-                                        className={`p-1.5 rounded-lg transition-colors ${copied
-                                            ? 'text-green-500 bg-green-50 dark:bg-green-900/20'
-                                            : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-[#383838]'
-                                            }`}
-                                        title={copied ? "Copied!" : "Copy summary"}
-                                    >
-                                        <Copy className="h-4 w-4" />
-                                    </button>
-                                    <button
                                         onClick={handleDownloadAsTxt}
-                                        className="p-1.5 rounded-lg transition-colors text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-[#383838]"
-                                        title="Download as text file"
+                                        className="p-1.5 rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-[#383838]"
+                                        title={canCopy ? "Download as text" : "Premium feature"}
                                     >
-                                        <Download className="h-4 w-4" />
+                                        {canCopy ? (
+                                            <Download className="h-4 w-4" />
+                                        ) : (
+                                            <div className="relative">
+                                                <Download className="h-4 w-4" />
+                                                <Lock className="h-3 w-3 absolute -top-1 -right-1 text-orange-500" />
+                                            </div>
+                                        )}
+                                    </button>
+                                    <button className="p-1.5 rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-[#383838]">
+                                        <RefreshCw className="h-4 w-4" />
                                     </button>
                                 </div>
                             </div>
 
-                            <div className="px-6 py-5 min-h-[240px]">
-                                <div className="prose dark:prose-invert max-w-none">
-                                    {currentPage <= paragraphs.length && (
-                                        <div>
-                                            {paragraphs[currentPage - 1].split('\n').map((line, i) => {
-                                                // Remove any bullet point markers from the beginning of the line
-                                                const cleanLine = line.replace(/^\s*[-•*]\s*|\s*\d+\.\s*/, '');
-                                                return (
-                                                    <p key={i} className="mb-4 text-gray-800 dark:text-gray-200 leading-relaxed">
-                                                        {cleanLine}
-                                                    </p>
-                                                );
-                                            })}
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-
-                            {/* Pagination controls */}
-                            {pagesCount > 1 && (
-                                <div className="px-6 py-4 border-t border-gray-100 dark:border-gray-600 flex justify-between items-center">
-                                    <button
-                                        onClick={prevPage}
-                                        disabled={currentPage === 1}
-                                        className={`flex items-center text-sm font-medium rounded-lg px-3 py-1.5 ${currentPage === 1
-                                            ? 'text-gray-400 dark:text-gray-500 cursor-not-allowed'
-                                            : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-[#383838]'
-                                            }`}
-                                    >
-                                        <ChevronLeft className="h-4 w-4 mr-1" />
-                                        Previous
-                                    </button>
-                                    <div className="text-xs text-gray-500 dark:text-gray-400">
-                                        Page {currentPage} of {pagesCount}
+                            {/* Summary content - Scrollable with min-height */}
+                            {activeTab === 'summary' && (
+                                <div className="px-6 py-4 overflow-y-auto min-h-[300px] max-h-[600px] md:max-h-[800px] custom-scrollbar">
+                                    <div className="prose dark:prose-invert max-w-none">
+                                        {formattedSummary}
                                     </div>
-                                    <button
-                                        onClick={nextPage}
-                                        disabled={currentPage === pagesCount}
-                                        className={`flex items-center text-sm font-medium rounded-lg px-3 py-1.5 ${currentPage === pagesCount
-                                            ? 'text-gray-400 dark:text-gray-500 cursor-not-allowed'
-                                            : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-[#383838]'
-                                            }`}
-                                    >
-                                        Next
-                                        <ChevronRight className="h-4 w-4 ml-1" />
-                                    </button>
                                 </div>
                             )}
-                        </div>
 
-                        {/* Feedback and extra actions */}
-                        <div className="mt-6 flex justify-between">
-                            <div className="flex items-center space-x-6">
-                                <button
-                                    onClick={handleLike}
-                                    className={`flex items-center text-sm py-1.5 px-3 rounded-lg transition-colors ${liked
-                                        ? 'text-orange-500 bg-orange-50 dark:bg-orange-900/20'
-                                        : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-[#383838]'
-                                        }`}
-                                >
-                                    <ThumbsUp className="h-4 w-4 mr-1.5" />
-                                    <span>{liked ? 'Liked' : 'Like'}</span>
-                                </button>
-                                <button
-                                    className="flex items-center text-sm text-gray-500 dark:text-gray-400 py-1.5 px-3 rounded-lg hover:bg-gray-100 dark:hover:bg-[#383838]"
-                                >
-                                    <Flag className="h-4 w-4 mr-1.5" />
-                                    <span>Report Issue</span>
-                                </button>
-                            </div>
-                            <div className="flex items-center space-x-4">
-                                <button
-                                    className="flex items-center text-sm text-gray-500 dark:text-gray-400 py-1.5 px-3 rounded-lg hover:bg-gray-100 dark:hover:bg-[#383838]"
-                                >
-                                    <Tag className="h-4 w-4 mr-1.5" />
-                                    <span>Add Tags</span>
-                                </button>
-                                <button
-                                    className="flex items-center text-sm text-gray-500 dark:text-gray-400 py-1.5 px-3 rounded-lg hover:bg-gray-100 dark:hover:bg-[#383838]"
-                                >
-                                    <Share2 className="h-4 w-4 mr-1.5" />
-                                    <span>Share</span>
-                                </button>
-                            </div>
+                            {/* PDF tab content */}
+                            {activeTab === 'pdf' && (
+                                <div className="flex items-center justify-center p-12 min-h-[300px]">
+                                    <div className="text-gray-500 dark:text-gray-400 text-center">
+                                        <p className="mb-2">PDF feature coming soon</p>
+                                        <p className="text-sm">Download this summary as a PDF document</p>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>
