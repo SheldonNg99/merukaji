@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Copy, Clock, Bookmark, ExternalLink, Plus, Download, RefreshCw, Lock } from 'lucide-react';
+import { Copy, Clock, Bookmark, ExternalLink, Plus, Download, Lock } from 'lucide-react';
 import Image from 'next/image';
 import { SummaryResultsPageProps } from '@/types/summary';
 import { useRouter } from 'next/navigation';
@@ -304,6 +304,12 @@ const SummaryResultsPage = ({ summary, metadata, timestamp }: SummaryResultsPage
                             <div className="flex justify-end items-center px-4 py-2 border-b border-gray-200 dark:border-gray-700">
                                 <div className="flex items-center gap-2">
                                     <button
+                                        onClick={handleBookmark}
+                                        className="p-1.5 rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-[#383838]"
+                                    >
+                                        <Bookmark className="h-4 w-4" />
+                                    </button>
+                                    <button
                                         onClick={handleCopy}
                                         className="p-1.5 rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-[#383838]"
                                         title={canCopy ? "Copy to clipboard" : "Premium feature"}
@@ -318,12 +324,6 @@ const SummaryResultsPage = ({ summary, metadata, timestamp }: SummaryResultsPage
                                         )}
                                     </button>
                                     <button
-                                        onClick={handleBookmark}
-                                        className="p-1.5 rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-[#383838]"
-                                    >
-                                        <Bookmark className="h-4 w-4" />
-                                    </button>
-                                    <button
                                         onClick={handleDownloadAsTxt}
                                         className="p-1.5 rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-[#383838]"
                                         title={canCopy ? "Download as text" : "Premium feature"}
@@ -336,9 +336,6 @@ const SummaryResultsPage = ({ summary, metadata, timestamp }: SummaryResultsPage
                                                 <Lock className="h-3 w-3 absolute -top-1 -right-1 text-orange-500" />
                                             </div>
                                         )}
-                                    </button>
-                                    <button className="p-1.5 rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-[#383838]">
-                                        <RefreshCw className="h-4 w-4" />
                                     </button>
                                 </div>
                             </div>
