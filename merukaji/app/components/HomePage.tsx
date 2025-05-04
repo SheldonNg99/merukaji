@@ -6,8 +6,6 @@ import { TranscriptResponse } from '@/types/youtube';
 import { useToast } from '@/app/components/contexts/ToastContext';
 import SummaryResultsPage from '@/app/components/SummaryResultsPage';
 import { VideoMetadata } from '@/types/youtube';
-import AIModelDropdown from '@/app/components/AIModelDropdown';
-import { AIModelType } from '@/types/ai-models';
 import { useRouter } from 'next/navigation';
 
 export default function HomePage() {
@@ -17,7 +15,6 @@ export default function HomePage() {
     const [isLoading, setIsLoading] = useState(false);
     const [, setResult] = useState<TranscriptResponse | null>(null);
     const [, setError] = useState<string | null>(null);
-    const [selectedModel, setSelectedModel] = useState<AIModelType>('google');
     const [, setMounted] = useState(false);
     const router = useRouter();
     const [summaryData, setSummaryData] = useState<{
@@ -68,7 +65,6 @@ export default function HomePage() {
             setResult(data);
 
             // Then generate summary
-            // Then generate summary
             setIsSummarizing(true);
 
             const summaryResponse = await fetch('/api/summarize', {
@@ -78,8 +74,7 @@ export default function HomePage() {
                 },
                 body: JSON.stringify({
                     url: youtubeUrl,
-                    summaryType,
-                    model: selectedModel || undefined
+                    summaryType
                 }),
             });
 
@@ -151,7 +146,7 @@ export default function HomePage() {
 
     // Otherwise, show the search interface
     return (
-        <div className="w-full min-h-screen bg-[#fffefe] dark:bg-[#202120] flex flex-col items-center transition-colors">
+        <div className="w-full min-h-screen bg-[#f8f9fa] dark:bg-[#202120] flex flex-col items-center transition-colors">
             <div className="w-full max-w-4xl mx-auto px-4 flex flex-col items-center justify-center min-h-[80vh]">
                 {/* Welcome Message */}
                 <div className="text-center mb-12 animate-fade-in">
@@ -163,7 +158,7 @@ export default function HomePage() {
                     </p>
                 </div>
 
-                {/* Search Section */}
+                {/* Search Section - Simplified without AI model dropdown */}
                 <div className={`w-full max-w-2xl transition-all duration-300 ease-in-out ${isFocused ? 'scale-105' : 'scale-100'}`}>
                     <div className="flex gap-3 bg-[#f2f5f6] dark:bg-[#2E2E2E] p-2 rounded-2xl shadow-md hover:shadow-lg transition-shadow duration-300 border border-transparent dark:border-gray-700">
                         {/* Search Input */}
@@ -181,15 +176,6 @@ export default function HomePage() {
                                         handleSubmit();
                                     }
                                 }}
-                            />
-                        </div>
-
-                        {/* AI Model Dropdown */}
-                        <div className="self-center">
-                            <AIModelDropdown
-                                selectedModel={selectedModel}
-                                onChange={setSelectedModel}
-                                disabled={!youtubeUrl}
                             />
                         </div>
 
