@@ -1,12 +1,14 @@
+// app/components/SummaryResultsPage.tsx
 import React, { useState, useEffect } from 'react';
-import { Copy, Clock, Bookmark, ExternalLink, Plus, Download, Lock } from 'lucide-react';
+import { Copy, Clock, Bookmark, ExternalLink, Plus, Lock } from 'lucide-react';
 import Image from 'next/image';
 import { SummaryResultsPageProps } from '@/types/summary';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { useToast } from '@/app/components/contexts/ToastContext';
+import PdfViewer from './PdfViewer'; // Import our new PdfViewer component
 
-const SummaryResultsPage = ({ summary, metadata, timestamp }: SummaryResultsPageProps) => {
+const SummaryResultsPage = ({ summary, metadata, timestamp, provider }: SummaryResultsPageProps) => {
     const [, setCopied] = useState(false);
     const [bookmarked, setBookmarked] = useState(false);
     const [activeTab, setActiveTab] = useState('summary');
@@ -160,24 +162,6 @@ const SummaryResultsPage = ({ summary, metadata, timestamp }: SummaryResultsPage
         setBookmarked(!bookmarked);
     };
 
-    const handleDownloadAsTxt = () => {
-        // Free users see upgrade prompt instead of downloading
-        if (!canCopy) {
-            showToast('Upgrade to Pro or Max to download summaries', 'info', 5000);
-            return;
-        }
-
-        if (!summary) return;
-
-        const element = document.createElement('a');
-        const file = new Blob([summary], { type: 'text/plain' });
-        element.href = URL.createObjectURL(file);
-        element.download = `${metadata?.title || 'summary'}.txt`;
-        document.body.appendChild(element);
-        element.click();
-        document.body.removeChild(element);
-    };
-
     if (!summary) {
         return (
             <div className="flex items-center justify-center min-h-[60vh]">
@@ -323,20 +307,6 @@ const SummaryResultsPage = ({ summary, metadata, timestamp }: SummaryResultsPage
                                             </div>
                                         )}
                                     </button>
-                                    <button
-                                        onClick={handleDownloadAsTxt}
-                                        className="p-1.5 rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-[#383838]"
-                                        title={canCopy ? "Download as text" : "Premium feature"}
-                                    >
-                                        {canCopy ? (
-                                            <Download className="h-4 w-4" />
-                                        ) : (
-                                            <div className="relative">
-                                                <Download className="h-4 w-4" />
-                                                <Lock className="h-3 w-3 absolute -top-1 -right-1 text-orange-500" />
-                                            </div>
-                                        )}
-                                    </button>
                                 </div>
                             </div>
 
@@ -351,11 +321,13 @@ const SummaryResultsPage = ({ summary, metadata, timestamp }: SummaryResultsPage
 
                             {/* PDF tab content */}
                             {activeTab === 'pdf' && (
-                                <div className="flex items-center justify-center p-12 min-h-[300px]">
-                                    <div className="text-gray-500 dark:text-gray-400 text-center">
-                                        <p className="mb-2">PDF feature coming soon</p>
-                                        <p className="text-sm">Download this summary as a PDF document</p>
-                                    </div>
+                                <div className="h-[calc(100vh-150px)] min-h-[500px]">
+                                    <PdfViewer
+                                        summary={summary}
+                                        metadata={metadata}
+                                        timestamp={timestamp}
+                                        provider={provider}
+                                    />
                                 </div>
                             )}
                         </div>
