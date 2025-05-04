@@ -66,11 +66,6 @@ export default function SettingsPage() {
 
     useEffect(() => {
         fetchUserData();
-
-        // Cleanup function
-        return () => {
-            // Any cleanup needed
-        };
     }, [fetchUserData]);
 
     const handleSaveChanges = async () => {
@@ -120,18 +115,23 @@ export default function SettingsPage() {
     };
 
     return (
-        <div className="w-full min-h-screen bg-[#fffefe] dark:bg-[#202120] ">
-            <div className="max-w-5xl mx-auto py-16">
-                <h1 className="text-2xl font-medium mb-6 text-gray-900 dark:text-white">Settings</h1>
-                <div className="flex flex-col lg:flex-row gap-8">
-                    {/* Settings tabs */}
+        <div className="w-full min-h-screen bg-[#fffefe] dark:bg-[#202120]">
+            {/* Main content with proper padding for mobile */}
+            <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-16">
+                {/* Improved header with better spacing */}
+                <div className="pt-4 pb-6">
+                    <h1 className="text-2xl font-medium text-gray-900 dark:text-white">Settings</h1>
+                </div>
+                <div className="flex flex-col lg:flex-row gap-6">
+                    {/* Mobile-friendly tabs */}
                     <div className="w-full lg:w-64">
-                        <div className="bg-white dark:bg-[#2E2E2E] rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+                        <div className="flex overflow-x-auto lg:flex-col bg-white dark:bg-[#2E2E2E] rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
                             <button
                                 onClick={() => setActiveTab('profile')}
-                                className={`w-full px-4 py-3.5 text-left transition-colors flex items-center gap-3 border-l-2 ${activeTab === 'profile'
-                                    ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-400 border-l-orange-500 font-medium'
-                                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#383838] border-l-transparent'
+                                className={`flex-shrink-0 px-4 py-3.5 text-left transition-colors flex items-center gap-3 border-b-2 lg:border-b-0 lg:border-l-2 
+                                    ${activeTab === 'profile'
+                                        ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-400 border-b-orange-500 lg:border-l-orange-500 lg:border-b-transparent font-medium'
+                                        : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#383838] border-b-transparent lg:border-l-transparent'
                                     }`}
                             >
                                 <User className="h-4 w-4" />
@@ -139,9 +139,10 @@ export default function SettingsPage() {
                             </button>
                             <button
                                 onClick={() => setActiveTab('billing')}
-                                className={`w-full px-4 py-3.5 text-left transition-colors flex items-center gap-3 border-l-2 ${activeTab === 'billing'
-                                    ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-400 border-l-orange-500 font-medium'
-                                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#383838] border-l-transparent'
+                                className={`flex-shrink-0 px-4 py-3.5 text-left transition-colors flex items-center gap-3 border-b-2 lg:border-b-0 lg:border-l-2
+                                    ${activeTab === 'billing'
+                                        ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-400 border-b-orange-500 lg:border-l-orange-500 lg:border-b-transparent font-medium'
+                                        : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#383838] border-b-transparent lg:border-l-transparent'
                                     }`}
                             >
                                 <CreditCard className="h-4 w-4" />
@@ -149,9 +150,10 @@ export default function SettingsPage() {
                             </button>
                             <button
                                 onClick={() => setActiveTab('appearance')}
-                                className={`w-full px-4 py-3.5 text-left transition-colors flex items-center gap-3 border-l-2 ${activeTab === 'appearance'
-                                    ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-400 border-l-orange-500 font-medium'
-                                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#383838] border-l-transparent'
+                                className={`flex-shrink-0 px-4 py-3.5 text-left transition-colors flex items-center gap-3 border-b-2 lg:border-b-0 lg:border-l-2
+                                    ${activeTab === 'appearance'
+                                        ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-400 border-b-orange-500 lg:border-l-orange-500 lg:border-b-transparent font-medium'
+                                        : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#383838] border-b-transparent lg:border-l-transparent'
                                     }`}
                             >
                                 {activeTab === 'appearance' ? (
@@ -165,9 +167,9 @@ export default function SettingsPage() {
                     </div>
 
                     {/* Main content area */}
-                    <div className="flex-1">
+                    <div className="flex-1 mt-6 lg:mt-0">
                         {activeTab === 'profile' && (
-                            <div className="bg-white dark:bg-[#2E2E2E] rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+                            <div className="bg-white dark:bg-[#2E2E2E] rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-4 sm:p-6">
                                 <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-6">Your Profile</h2>
 
                                 {isLoading ? (
@@ -246,7 +248,7 @@ export default function SettingsPage() {
                         )}
 
                         {activeTab === 'appearance' && (
-                            <div className="bg-white dark:bg-[#2E2E2E] rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+                            <div className="bg-white dark:bg-[#2E2E2E] rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-4 sm:p-6">
                                 <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-6">Appearance Settings</h2>
 
                                 <div className="space-y-6">
