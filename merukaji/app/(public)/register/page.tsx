@@ -153,7 +153,7 @@ export default function Register() {
                     </Link>
                 </div>
 
-                <p className="mt-8 text-center text-sm text-gray-500">
+                {/* <p className="mt-8 text-center text-sm text-gray-500">
                     By continuing, you agree to our{' '}
                     <a href="/terms" className="text-[#FFAB5B] hover:text-[#FF9B3B] font-medium">
                         Terms of Service
@@ -162,7 +162,7 @@ export default function Register() {
                     <a href="/privacy" className="text-[#FFAB5B] hover:text-[#FF9B3B] font-medium">
                         Privacy Policy
                     </a>
-                </p>
+                </p> */}
             </div>
         </div>
     );
