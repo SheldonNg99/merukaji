@@ -3,6 +3,7 @@ import GoogleProvider from "next-auth/providers/google";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { createClient } from '@supabase/supabase-js';
 import { compare } from "bcryptjs";
+import { recordFailedAttempt, resetLoginAttempts, checkLoginAttempts } from "./authLockout";
 
 const supabaseUrl = process.env.SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -74,16 +75,25 @@ export const authOptions: AuthOptions = {
                     throw new Error("Email and password are required");
                 }
 
+                if (!(await checkLoginAttempts(credentials.email))) {
+                    throw new Error("Account is temporarily locked due to too many failed attempts. Try again later.");
+                }
+
                 const user = await getUserByEmail(credentials.email);
+
                 if (!user) {
-                    throw new Error("No user found");
+                    await recordFailedAttempt(credentials.email);
+                    throw new Error("Invalid email or password");
                 }
 
                 try {
                     const isValid = await compare(credentials.password, user.password);
                     if (!isValid) {
-                        throw new Error("Invalid password");
+                        await recordFailedAttempt(credentials.email);
+                        throw new Error("Invalid email or password");
                     }
+
+                    await resetLoginAttempts(credentials.email);
 
                     return {
                         id: user.id.toString(),
@@ -91,8 +101,9 @@ export const authOptions: AuthOptions = {
                         name: user.name,
                         tier: user.tier || 'free',
                     };
-                } catch (err) {
-                    console.error("Error in password comparison:", err);
+                } catch (error) {
+                    await recordFailedAttempt(credentials.email);
+                    console.error("Authentication error:", error instanceof Error ? error.message : String(error));
                     throw new Error("Authentication error");
                 }
             },

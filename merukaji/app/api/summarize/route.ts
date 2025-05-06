@@ -6,6 +6,7 @@ import { extractVideoId, getVideoTranscript, getVideoMetadata } from '@/lib/yout
 import { convertTranscriptToParagraphs, formatSummary } from '@/lib/textProcessing';
 import { checkRateLimit, recordUsage } from '@/lib/rateLimiter';
 import { generateSummaryWithFallback } from '@/lib/fallbackMechanisms';
+import { validateYouTubeUrl, sanitizeInput } from '@/lib/securityUtils';
 import { logger } from '@/lib/logger';
 
 export async function POST(req: NextRequest) {
@@ -18,6 +19,7 @@ export async function POST(req: NextRequest) {
         if (!session || !session.user) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
+
 
         const userId = session.user.id;
         const userTier = session.user.tier || 'free';
@@ -33,8 +35,10 @@ export async function POST(req: NextRequest) {
         }
 
         const { url, summaryType = 'short' } = await req.json();
-        if (!url) {
-            return NextResponse.json({ error: 'YouTube URL is required' }, { status: 400 });
+
+        const sanitizedUrl = sanitizeInput(url || '');
+        if (!url || !validateYouTubeUrl(sanitizedUrl)) {
+            return NextResponse.json({ error: 'Invalid YouTube URL' }, { status: 400 });
         }
 
         const videoId = extractVideoId(url);
