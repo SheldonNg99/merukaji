@@ -1,34 +1,33 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/authOptions';
-import { stripe } from '@/lib/stripe-server';
+import { getSubscription } from '@/lib/paypal-server';
 import { supabaseAdmin } from '@/lib/supabase';
-import { PRICE_IDS } from '@/lib/stripe';
+import { PRICE_IDS } from '@/lib/paypal-client';
 import { logger } from '@/lib/logger';
 
-// Helper function with improved logging
-function getTierFromPriceId(priceId?: string): string {
-    if (!priceId) return 'free';
+function getTierFromPlanId(planId?: string): string {
+    if (!planId) return 'free';
 
-    logger.info('Determining tier from price ID', {
-        priceId,
-        knownPriceIds: {
-            proMonthly: process.env.NEXT_PUBLIC_STRIPE_PRO_MONTHLY_PRICE_ID,
-            proYearly: process.env.NEXT_PUBLIC_STRIPE_PRO_YEARLY_PRICE_ID,
-            maxMonthly: process.env.NEXT_PUBLIC_STRIPE_MAX_MONTHLY_PRICE_ID,
-            maxYearly: process.env.NEXT_PUBLIC_STRIPE_MAX_YEARLY_PRICE_ID
+    logger.info('Determining tier from plan ID', {
+        planId,
+        knownPlanIds: {
+            proMonthly: process.env.NEXT_PUBLIC_PAYPAL_PRO_MONTHLY_PLAN_ID,
+            proYearly: process.env.NEXT_PUBLIC_PAYPAL_PRO_YEARLY_PLAN_ID,
+            maxMonthly: process.env.NEXT_PUBLIC_PAYPAL_MAX_MONTHLY_PLAN_ID,
+            maxYearly: process.env.NEXT_PUBLIC_PAYPAL_MAX_YEARLY_PLAN_ID
         }
     });
 
     const map: Record<string, string> = {
-        [process.env.NEXT_PUBLIC_STRIPE_PRO_MONTHLY_PRICE_ID || '']: 'pro',
-        [process.env.NEXT_PUBLIC_STRIPE_PRO_YEARLY_PRICE_ID || '']: 'pro',
-        [process.env.NEXT_PUBLIC_STRIPE_MAX_MONTHLY_PRICE_ID || '']: 'max',
-        [process.env.NEXT_PUBLIC_STRIPE_MAX_YEARLY_PRICE_ID || '']: 'max',
+        [process.env.NEXT_PUBLIC_PAYPAL_PRO_MONTHLY_PLAN_ID || '']: 'pro',
+        [process.env.NEXT_PUBLIC_PAYPAL_PRO_YEARLY_PLAN_ID || '']: 'pro',
+        [process.env.NEXT_PUBLIC_PAYPAL_MAX_MONTHLY_PLAN_ID || '']: 'max',
+        [process.env.NEXT_PUBLIC_PAYPAL_MAX_YEARLY_PLAN_ID || '']: 'max',
     };
 
-    const tier = map[priceId] || 'free';
-    logger.info('Tier determination result', { priceId, determinedTier: tier });
+    const tier = map[planId] || 'free';
+    logger.info('Tier determination result', { planId, determinedTier: tier });
 
     return tier;
 }
@@ -48,7 +47,7 @@ export async function GET(req: NextRequest) {
         // Get user subscription data from Supabase
         const { data: user, error } = await supabaseAdmin
             .from('users')
-            .select('tier, stripe_subscription_id, stripe_customer_id')
+            .select('tier, paypal_subscription_id, email')
             .eq('id', session.user.id)
             .single();
 
@@ -61,7 +60,7 @@ export async function GET(req: NextRequest) {
         }
 
         // If user has no subscription, return database tier
-        if (!user.stripe_subscription_id) {
+        if (!user.paypal_subscription_id) {
             return NextResponse.json({
                 success: true,
                 tier: user.tier || 'free',
@@ -72,66 +71,58 @@ export async function GET(req: NextRequest) {
             });
         }
 
-        // Fetch subscription details from Stripe
+        // Fetch subscription details from PayPal
         try {
-            const subscription = await stripe.subscriptions.retrieve(user.stripe_subscription_id);
+            const subscription = await getSubscription(user.paypal_subscription_id);
 
-            // Check if the subscription has items
-            if (!subscription?.items?.data?.length) {
+            if (!subscription) {
                 return NextResponse.json({
                     success: true,
                     tier: user.tier || 'free',
                     status: 'unknown',
-                    subscriptionId: user.stripe_subscription_id,
-                    errorDetails: 'Subscription exists but has no items'
+                    subscriptionId: user.paypal_subscription_id,
+                    errorDetails: 'Subscription exists but could not be retrieved'
                 });
             }
 
-            // Get the subscription item to access period data
-            const subscriptionItem = subscription.items.data[0];
+            // Get the plan ID
+            const planId = subscription.plan_id;
+            const tier = getTierFromPlanId(planId);
 
-            const priceId = subscriptionItem?.price?.id;
-            const tier = getTierFromPriceId(priceId);
-
-            // Get period data from the subscription item
-            const currentPeriodEnd = subscriptionItem?.current_period_end
-                ? new Date(subscriptionItem.current_period_end * 1000).toISOString()
-                : null;
-
-            const currentPeriodStart = subscriptionItem?.current_period_start
-                ? new Date(subscriptionItem.current_period_start * 1000).toISOString()
-                : null;
+            // Get billing details from subscription
+            const currentPeriodEnd = subscription.billing_info?.next_billing_time || null;
+            const currentPeriodStart = subscription.start_time || null;
 
             // Determine interval from the plan
-            const interval = subscriptionItem?.plan?.interval || null;
+            const interval = subscription.plan?.billing_cycles?.[0]?.frequency?.interval_unit || null;
 
             return NextResponse.json({
                 success: true,
                 tier,
-                status: subscription.status,
+                status: subscription.status.toLowerCase(),
                 subscriptionId: subscription.id,
                 currentPeriodEnd,
                 currentPeriodStart,
-                cancelAtPeriodEnd: subscription.cancel_at_period_end,
-                interval
+                cancelAtPeriodEnd: subscription.status === 'SUSPENDED',
+                interval: interval === 'YEAR' ? 'year' : 'month'
             });
-        } catch (stripeError) {
-            logger.error('Error fetching Stripe subscription:', {
-                error: stripeError instanceof Error ? stripeError.message : String(stripeError)
+        } catch (err) {
+            logger.error('Error fetching PayPal subscription:', {
+                error: err instanceof Error ? err.message : String(err)
             });
 
-            // Still return user data from database if Stripe API fails
+            // Still return user data from database if PayPal API fails
             return NextResponse.json({
                 success: true,
                 tier: user.tier || 'free',
                 status: 'unknown',
-                subscriptionId: user.stripe_subscription_id,
-                errorDetails: 'Could not fetch current subscription details from Stripe'
+                subscriptionId: user.paypal_subscription_id,
+                errorDetails: 'Could not fetch current subscription details from PayPal'
             });
         }
-    } catch (error) {
+    } catch (err) {
         logger.error('check-status error:', {
-            error: error instanceof Error ? error.message : String(error)
+            error: err instanceof Error ? err.message : String(err)
         });
 
         return NextResponse.json({
@@ -149,65 +140,36 @@ export async function POST(req: NextRequest) {
         }
 
         const body = await req.json().catch(() => ({}));
-        const { sessionId } = body;
+        const { subscriptionId } = body;
 
-        if (!sessionId) {
-            return NextResponse.json({ success: false, error: 'Missing session ID' }, { status: 400 });
+        if (!subscriptionId) {
+            return NextResponse.json({ success: false, error: 'Missing subscription ID' }, { status: 400 });
         }
 
         try {
-            logger.info('Processing checkout session', { sessionId });
+            logger.info('Processing PayPal subscription', { subscriptionId });
 
-            const checkoutSession = await stripe.checkout.sessions.retrieve(sessionId, {
-                expand: ['subscription', 'subscription.items.data.price']
-            });
+            const subscription = await getSubscription(subscriptionId);
 
-            if (checkoutSession.status !== 'complete') {
+            if (subscription.status !== 'ACTIVE') {
                 return NextResponse.json({ success: false, error: 'Payment not completed' }, { status: 400 });
             }
 
-            logger.info('Checkout session retrieved', {
-                status: checkoutSession.status,
-                hasSubscription: !!checkoutSession.subscription
+            logger.info('PayPal subscription retrieved', {
+                status: subscription.status
             });
 
-            if (!checkoutSession.subscription) {
-                return NextResponse.json({
-                    success: false,
-                    error: 'No subscription found in checkout session'
-                }, { status: 400 });
-            }
-
-            const subscription = typeof checkoutSession.subscription === 'string'
-                ? await stripe.subscriptions.retrieve(checkoutSession.subscription)
-                : checkoutSession.subscription;
-
-            logger.info('Subscription details', {
-                id: subscription.id,
-                status: subscription.status,
-                hasItems: subscription.items.data.length > 0
-            });
-
-            if (!subscription?.items?.data?.length) {
-                return NextResponse.json({
-                    success: false,
-                    error: 'Subscription exists but has no items'
-                }, { status: 400 });
-            }
-
-            const priceId = subscription.items.data[0]?.price?.id;
-            logger.info('Price ID from subscription', { priceId });
-
-            // Determine tier from priceId
+            // Determine tier from planId
+            const planId = subscription.plan_id;
             let tier = 'free';
 
-            if (priceId === PRICE_IDS.pro.monthly || priceId === PRICE_IDS.pro.yearly) {
+            if (planId === PRICE_IDS.pro.monthly || planId === PRICE_IDS.pro.yearly) {
                 tier = 'pro';
-            } else if (priceId === PRICE_IDS.max.monthly || priceId === PRICE_IDS.max.yearly) {
+            } else if (planId === PRICE_IDS.max.monthly || planId === PRICE_IDS.max.yearly) {
                 tier = 'max';
             } else {
                 // If we can't determine the tier, log it and default to pro
-                logger.warn('Could not determine tier from price ID', { priceId });
+                logger.warn('Could not determine tier from plan ID', { planId });
                 tier = 'pro'; // Default to pro if we can't determine tier
             }
 
@@ -215,8 +177,7 @@ export async function POST(req: NextRequest) {
 
             const updates = {
                 tier,
-                stripe_subscription_id: subscription.id,
-                stripe_customer_id: subscription.customer as string,
+                paypal_subscription_id: subscription.id,
                 subscription_status: subscription.status,
                 updated_at: new Date().toISOString(),
             };
@@ -245,10 +206,10 @@ export async function POST(req: NextRequest) {
                 subscriptionId: subscription.id,
             });
 
-        } catch (stripeError) {
-            logger.error('Error with Stripe checkout session:', {
-                error: stripeError instanceof Error ? stripeError.message : String(stripeError),
-                sessionId
+        } catch (err) {
+            logger.error('Error with PayPal subscription:', {
+                error: err instanceof Error ? err.message : String(err),
+                subscriptionId
             });
 
             return NextResponse.json({
@@ -256,9 +217,9 @@ export async function POST(req: NextRequest) {
                 error: 'Error processing payment information'
             }, { status: 500 });
         }
-    } catch (error) {
+    } catch (err) {
         logger.error('check-status POST error:', {
-            error: error instanceof Error ? error.message : String(error)
+            error: err instanceof Error ? err.message : String(err)
         });
 
         return NextResponse.json({

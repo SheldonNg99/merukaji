@@ -1,15 +1,18 @@
+// app/components/UpgradePage.tsx
 'use client';
 
 import { useState, useEffect } from 'react';
-import { CheckCircle2, Info, ArrowRight, AlertTriangle, Loader2 } from 'lucide-react';
+import { CheckCircle2, Info, AlertTriangle, Loader2 } from 'lucide-react';
 import { useSession } from 'next-auth/react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { SUBSCRIPTION_PLANS, PRICE_IDS, isStripeConfigured } from '@/lib/stripe-client';
+import { SUBSCRIPTION_PLANS, PRICE_IDS, isPayPalConfigured } from '@/lib/paypal-client';
 import { useToast } from '@/app/components/contexts/ToastContext';
+import PayPalSubscribeButton from './PayPalSubscribeButton';
 import Link from 'next/link';
+import { logger } from '@/lib/logger';
 
 export default function UpgradePage() {
-    const { data: session, status, update: updateSession } = useSession();
+    const { status, update: updateSession } = useSession();
     const [pageLoading, setPageLoading] = useState(true);
     const [buttonLoading, setButtonLoading] = useState<string | null>(null);
     const [annualBilling, setAnnualBilling] = useState(true);
@@ -31,11 +34,6 @@ export default function UpgradePage() {
     const searchParams = useSearchParams();
     const router = useRouter();
 
-    // Debug logging (just once)
-    useEffect(() => {
-        console.log('Current session:', session);
-    }, [session]);
-
     // Fetch subscription details on mount - but only once when status is ready
     useEffect(() => {
         async function loadSubscriptionDetails() {
@@ -56,7 +54,10 @@ export default function UpgradePage() {
                         throw new Error(data.error || 'Failed to load subscription details');
                     }
 
-                    console.log('Subscription data from API:', data);
+                    logger.info('Loaded subscription data', {
+                        tier: data.tier,
+                        status: data.status
+                    });
 
                     // Update local subscription state
                     setSubscription({
@@ -71,7 +72,9 @@ export default function UpgradePage() {
                         setAnnualBilling(data.interval === 'year');
                     }
                 } catch (error) {
-                    console.error('Error fetching subscription details:', error);
+                    logger.error('Error fetching subscription details', {
+                        error: error instanceof Error ? error.message : String(error)
+                    });
                     showToast('Failed to load subscription details', 'error');
                 } finally {
                     setPageLoading(false);
@@ -88,19 +91,20 @@ export default function UpgradePage() {
 
         const success = searchParams.get('success');
         const canceled = searchParams.get('canceled');
-        const sessionId = searchParams.get('session_id');
+        const subscriptionId = searchParams.get('subscription_id');
 
         if (!success && !canceled) return;
 
         async function processCheckoutResult() {
-            if (success && sessionId) {
+            if (success && subscriptionId) {
                 try {
                     setButtonLoading('checking-status');
+                    logger.info('Processing successful PayPal subscription', { subscriptionId });
 
                     const response = await fetch('/api/payment/check-status', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ sessionId }),
+                        body: JSON.stringify({ subscriptionId }),
                     });
 
                     if (!response.ok) {
@@ -109,7 +113,6 @@ export default function UpgradePage() {
                     }
 
                     const data = await response.json();
-                    console.log('Checkout result:', data);
 
                     if (data.success) {
                         // Force session update
@@ -135,16 +138,20 @@ export default function UpgradePage() {
                         try {
                             const url = new URL(window.location.href);
                             url.searchParams.delete('success');
-                            url.searchParams.delete('session_id');
+                            url.searchParams.delete('subscription_id');
                             window.history.replaceState({}, '', url);
                         } catch (e) {
-                            console.error('Error updating URL params:', e);
+                            logger.error('Error updating URL params', {
+                                error: e instanceof Error ? e.message : String(e)
+                            });
                         }
                     } else {
                         setErrorMessage(data.error || 'Failed to verify subscription status');
                     }
                 } catch (error) {
-                    console.error('Error checking subscription status:', error);
+                    logger.error('Error checking subscription status', {
+                        error: error instanceof Error ? error.message : String(error)
+                    });
                     setErrorMessage('An unexpected error occurred. Please try again.');
                 } finally {
                     setButtonLoading(null);
@@ -158,7 +165,9 @@ export default function UpgradePage() {
                     url.searchParams.delete('canceled');
                     window.history.replaceState({}, '', url);
                 } catch (e) {
-                    console.error('Error updating URL params:', e);
+                    logger.error('Error updating URL params', {
+                        error: e instanceof Error ? e.message : String(e)
+                    });
                 }
             }
         }
@@ -166,96 +175,65 @@ export default function UpgradePage() {
         processCheckoutResult();
     }, [searchParams, updateSession, showToast]);
 
-    // Handle plan upgrade
-    const handleUpgrade = async (planName: string) => {
-        if (!session?.user) {
-            router.push('/login');
-            return;
-        }
-
-        // Check if Stripe is properly configured
-        if (!isStripeConfigured()) {
-            setErrorMessage('Payment system is not properly configured. Please contact support.');
-            return;
-        }
-
-        setButtonLoading(planName);
+    // Handle payment success/error (for PayPal button component)
+    const handlePaymentSuccess = async (data: { subscriptionId: string }) => {
+        showToast('Payment successful! Processing your subscription...', 'success');
+        setButtonLoading('processing');
 
         try {
-            let priceId: string;
-
-            if (planName === 'Pro') {
-                priceId = annualBilling ? PRICE_IDS.pro.yearly : PRICE_IDS.pro.monthly;
-            } else if (planName === 'Max') {
-                priceId = annualBilling ? PRICE_IDS.max.yearly : PRICE_IDS.max.monthly;
-            } else if (planName === 'Free') {
-                // Handle downgrade to free plan
-                showToast('Downgrading to Free plan is not yet implemented', 'warning');
-                setButtonLoading(null);
-                return;
-            } else {
-                setButtonLoading(null);
-                return;
-            }
-
-            console.log('Creating checkout with price ID:', priceId);
-
-            const response = await fetch('/api/payment/create-checkout', {
+            // Process the subscription on our backend
+            const response = await fetch('/api/payment/check-status', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    priceId,
-                    billingInterval: annualBilling ? 'yearly' : 'monthly',
-                }),
+                body: JSON.stringify({ subscriptionId: data.subscriptionId }),
             });
 
-            // Check for errors before parsing JSON
+            const responseData = await response.json();
+
             if (!response.ok) {
-                const errorData = await response.json().catch(() => ({}));
-                throw new Error(errorData.error || `Server error: ${response.status}`);
+                throw new Error(responseData.error || 'Failed to process subscription');
             }
 
-            const data = await response.json();
+            // Update session
+            await updateSession();
 
-            if (data.url) {
-                // Redirect to Stripe checkout
-                window.location.href = data.url;
-            } else {
-                console.error('Failed to create checkout session:', data);
-                setErrorMessage(data.error || 'Failed to create checkout session');
+            // Show success message
+            const tierName = responseData.tier.charAt(0).toUpperCase() + responseData.tier.slice(1);
+            setSuccessMessage(`Your subscription was successfully activated! You now have the ${tierName} plan.`);
+
+            // Refresh subscription data
+            const statusResponse = await fetch('/api/payment/check-status');
+            if (statusResponse.ok) {
+                const statusData = await statusResponse.json();
+                setSubscription({
+                    tier: statusData.tier || 'free',
+                    status: statusData.status,
+                    interval: statusData.interval,
+                    currentPeriodEnd: statusData.currentPeriodEnd
+                });
             }
         } catch (error) {
-            console.error('Error creating checkout:', error);
-            setErrorMessage('An unexpected error occurred. Please try again.');
+            logger.error('Error processing payment success', {
+                error: error instanceof Error ? error.message : String(error)
+            });
+            setErrorMessage('Payment received but subscription activation failed. Please contact support.');
         } finally {
             setButtonLoading(null);
         }
     };
 
-    // Define plans
-    const plans = [
-        {
-            name: 'Free',
-            description: 'Basic functionality with limited features',
-            price: 0,
-            features: SUBSCRIPTION_PLANS.free.features,
-            popular: false,
-        },
-        {
-            name: 'Pro',
-            description: 'For everyday productivity',
-            price: annualBilling ? SUBSCRIPTION_PLANS.pro.yearlyPrice : SUBSCRIPTION_PLANS.pro.monthlyPrice,
-            features: SUBSCRIPTION_PLANS.pro.features,
-            popular: true,
-        },
-        {
-            name: 'Max',
-            description: '5-20x more usage than Pro',
-            price: annualBilling ? SUBSCRIPTION_PLANS.max.yearlyPrice : SUBSCRIPTION_PLANS.max.monthlyPrice,
-            features: SUBSCRIPTION_PLANS.max.features,
-            popular: false,
-        },
-    ];
+    const handlePaymentError = (error: unknown) => {
+        logger.error('Payment error', {
+            error: error instanceof Error ? error.message : String(error)
+        });
+        showToast('Payment failed. Please try again.', 'error');
+        setErrorMessage('Payment processing failed. Please try again or use a different payment method.');
+    };
+
+    const handlePaymentCancel = () => {
+        logger.info('Payment cancelled by user');
+        showToast('Payment cancelled', 'info');
+    };
 
     // Check if this is the current plan based on subscription.tier
     const isCurrentPlan = (planName: string): boolean => {
@@ -273,12 +251,46 @@ export default function UpgradePage() {
         );
     }
 
+    // Define plans with safer type handling
+    const plans = [
+        {
+            name: 'Free',
+            description: 'Basic functionality with limited features',
+            price: 0,
+            planId: '',  // Empty string for free plan
+            features: SUBSCRIPTION_PLANS.free.features,
+            popular: false,
+        },
+        {
+            name: 'Pro',
+            description: 'For everyday productivity',
+            price: annualBilling ? SUBSCRIPTION_PLANS.pro.yearlyPrice : SUBSCRIPTION_PLANS.pro.monthlyPrice,
+            // Ensure planId is always a string
+            planId: annualBilling
+                ? (PRICE_IDS.pro.yearly || '')
+                : (PRICE_IDS.pro.monthly || ''),
+            features: SUBSCRIPTION_PLANS.pro.features,
+            popular: true,
+        },
+        {
+            name: 'Max',
+            description: '5-20x more usage than Pro',
+            price: annualBilling ? SUBSCRIPTION_PLANS.max.yearlyPrice : SUBSCRIPTION_PLANS.max.monthlyPrice,
+            // Ensure planId is always a string
+            planId: annualBilling
+                ? (PRICE_IDS.max.yearly || '')
+                : (PRICE_IDS.max.monthly || ''),
+            features: SUBSCRIPTION_PLANS.max.features,
+            popular: false,
+        },
+    ];
+
     return (
         <div className="flex min-h-screen bg-[#f8f9fa] dark:bg-[#202120] transition-colors">
             <main className="flex-1">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
                     {/* Configuration warning */}
-                    {!isStripeConfigured() && (
+                    {!isPayPalConfigured() && (
                         <div className="mb-8 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4 flex items-start shadow-sm dark:shadow-md">
                             <AlertTriangle className="h-5 w-5 text-yellow-500 dark:text-yellow-400 mr-3 flex-shrink-0 mt-0.5" />
                             <div>
@@ -321,23 +333,22 @@ export default function UpgradePage() {
 
                     {/* Billing toggle */}
                     <div className="flex justify-center mb-12">
-                        {/* Existing billing toggle code */}
                         <div className="bg-gray-100 dark:bg-[#2E2E2E] p-1 rounded-lg inline-flex items-center shadow-sm dark:shadow-md">
                             <button
+                                onClick={() => setAnnualBilling(true)}
                                 className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${annualBilling
                                     ? 'bg-white dark:bg-[#202120] text-gray-900 dark:text-white shadow-sm'
                                     : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#383838]'
                                     }`}
-                                onClick={() => setAnnualBilling(true)}
                             >
                                 Annual (Save 10%)
                             </button>
                             <button
+                                onClick={() => setAnnualBilling(false)}
                                 className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${!annualBilling
                                     ? 'bg-white dark:bg-[#202120] text-gray-900 dark:text-white shadow-sm'
                                     : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#383838]'
                                     }`}
-                                onClick={() => setAnnualBilling(false)}
                             >
                                 Monthly
                             </button>
@@ -372,7 +383,7 @@ export default function UpgradePage() {
                                                 <div className="text-3xl font-bold text-gray-900 dark:text-white">Free</div>
                                             ) : (
                                                 <div className="flex items-baseline">
-                                                    <span className="text-3xl font-bold text-gray-900 dark:text-white">USD {plan.price}</span>
+                                                    <span className="text-3xl font-bold text-gray-900 dark:text-white">¥{plan.price.toLocaleString()}</span>
                                                     <span className="text-gray-600 dark:text-gray-300 ml-2 text-sm">
                                                         / month {annualBilling ? 'billed annually' : ''}
                                                     </span>
@@ -393,24 +404,35 @@ export default function UpgradePage() {
                                             >
                                                 Current Plan
                                             </button>
-                                        ) : (
+                                        ) : plan.price === 0 ? (
+                                            // Free plan 
                                             <button
-                                                onClick={() => handleUpgrade(plan.name)}
-                                                disabled={buttonLoading !== null}
-                                                className={`w-full py-3 px-4 rounded-xl font-medium flex items-center justify-center transition-colors ${plan.popular
-                                                    ? 'bg-[#E99947] hover:bg-[#FF9B3B] text-white shadow-sm'
-                                                    : 'bg-gray-900 dark:bg-[#383838] hover:bg-black dark:hover:bg-[#434342] text-white shadow-sm'
-                                                    } ${buttonLoading !== null ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                onClick={() => router.push('/home')}
+                                                className="w-full py-3 px-4 rounded-xl font-medium flex items-center justify-center bg-gray-900 dark:bg-[#383838] hover:bg-black dark:hover:bg-[#434342] text-white shadow-sm"
                                             >
-                                                {buttonLoading === plan.name ? (
-                                                    <Loader2 className="w-5 h-5 animate-spin" />
-                                                ) : (
-                                                    <>
-                                                        {plan.name === 'Free' ? 'Switch to Free' : `Get ${plan.name} Plan`}
-                                                        {plan.name !== 'Free' && <ArrowRight className="ml-2 h-4 w-4" />}
-                                                    </>
-                                                )}
+                                                Continue with Free
                                             </button>
+                                        ) : (
+                                            // Paid plans with PayPal button - handle potential undefined planId
+                                            <div className="w-full">
+                                                {plan.planId ? (
+                                                    <PayPalSubscribeButton
+                                                        planId={plan.planId}
+                                                        amount={plan.price}
+                                                        onSuccess={handlePaymentSuccess}
+                                                        onError={handlePaymentError}
+                                                        onCancel={handlePaymentCancel}
+                                                        disabled={buttonLoading !== null}
+                                                    />
+                                                ) : (
+                                                    <button
+                                                        disabled
+                                                        className="w-full py-3 px-4 rounded-xl font-medium flex items-center justify-center bg-gray-300 dark:bg-[#383838] text-gray-600 dark:text-gray-400 cursor-not-allowed"
+                                                    >
+                                                        Unavailable
+                                                    </button>
+                                                )}
+                                            </div>
                                         )}
                                     </div>
 
@@ -434,7 +456,7 @@ export default function UpgradePage() {
 
                     {/* Footer text */}
                     <div className="mt-12 text-center text-gray-600 dark:text-gray-400 text-sm">
-                        <p>Prices shown do not include applicable tax. Usage limits may apply.</p>
+                        <p>Prices shown include applicable tax (10% consumption tax). Usage limits may apply.</p>
                         <p className="mt-2">
                             Need a custom plan?{' '}
                             <Link href="/contact" className="text-[#FFAB5B] hover:text-[#FF9B3B] font-medium">

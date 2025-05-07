@@ -61,7 +61,7 @@ export default function SubscriptionDetails() {
                 throw new Error('No portal URL returned from server');
             }
 
-            // Navigate to the portal
+            // Navigate to the PayPal portal
             window.location.href = data.url;
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : 'Failed to open subscription management portal';
@@ -186,7 +186,7 @@ export default function SubscriptionDetails() {
                                     disabled={portalLoading}
                                     className="w-full md:w-auto px-5 py-2.5 bg-gray-700 dark:bg-gray-600 hover:bg-gray-800 dark:hover:bg-gray-700 text-white rounded-lg transition-all shadow-sm"
                                 >
-                                    {portalLoading ? 'Loading...' : 'Manage Subscription'}
+                                    {portalLoading ? 'Loading...' : 'Manage in PayPal'}
                                 </button>
                             )}
                         </div>

@@ -1,8 +1,8 @@
+// app/api/payment/create-checkout/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/authOptions';
-import { stripe } from '@/lib/stripe-server';
-import { supabaseAdmin } from '@/lib/supabase';
+import { createSubscription } from '@/lib/paypal-server';
 import { logger } from '@/lib/logger';
 
 export async function POST(req: NextRequest) {
@@ -13,7 +13,7 @@ export async function POST(req: NextRequest) {
         }
 
         // Log the start of the checkout process
-        logger.info('Creating checkout session', { userId: session.user.id });
+        logger.info('Creating PayPal checkout session', { userId: session.user.id });
 
         // Parse request body with error handling
         let body;
@@ -26,106 +26,51 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
         }
 
-        const { priceId } = body;
+        const { planId } = body;
 
-        // Validate priceId
-        if (!priceId?.startsWith('price_')) {
-            logger.error('Invalid price ID provided', { priceId });
-            return NextResponse.json({ error: 'Invalid price ID' }, { status: 400 });
+        // Validate planId
+        if (!planId?.startsWith('P-')) {
+            logger.error('Invalid PayPal plan ID provided', { planId });
+            return NextResponse.json({ error: 'Invalid plan ID' }, { status: 400 });
         }
 
-        // Log the price ID being used
-        logger.info('Using price ID', { priceId });
+        // Log the plan ID being used
+        logger.info('Using PayPal plan ID', { planId });
 
-        // Get existing customer info
-        const { data: user, error: userError } = await supabaseAdmin
-            .from('users')
-            .select('stripe_customer_id')
-            .eq('id', session.user.id)
-            .single();
-
-        if (userError) {
-            logger.error('Error fetching user data', { error: userError.message });
-            return NextResponse.json({ error: 'Failed to fetch user data' }, { status: 500 });
-        }
-
-        let stripeCustomerId = user?.stripe_customer_id;
-
-        // Create a new customer if needed
-        if (!stripeCustomerId) {
-            try {
-                const customer = await stripe.customers.create({
-                    email: session.user.email!,
-                    metadata: { userId: session.user.id }
-                });
-                stripeCustomerId = customer.id;
-
-                // Log customer creation
-                logger.info('Created new Stripe customer', {
-                    customerId: customer.id,
-                    userId: session.user.id
-                });
-
-                // Update user with new customer ID
-                const { error: updateError } = await supabaseAdmin
-                    .from('users')
-                    .update({ stripe_customer_id: stripeCustomerId })
-                    .eq('id', session.user.id);
-
-                if (updateError) {
-                    logger.error('Failed to update user with Stripe customer ID', {
-                        error: updateError.message
-                    });
-                    // Continue anyway, as this is not critical
-                }
-            } catch (stripeError) {
-                logger.error('Failed to create Stripe customer', {
-                    error: stripeError instanceof Error ? stripeError.message : String(stripeError)
-                });
-                return NextResponse.json({ error: 'Failed to create customer record' }, { status: 500 });
-            }
-        } else {
-            logger.info('Using existing Stripe customer', { customerId: stripeCustomerId });
-        }
-
-        const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
-
-        // Create the checkout session
         try {
-            const checkoutSession = await stripe.checkout.sessions.create({
-                customer: stripeCustomerId,
-                mode: 'subscription',
-                payment_method_types: ['card'],
-                line_items: [{ price: priceId, quantity: 1 }],
-                success_url: `${baseUrl}/upgrade?success=true&session_id={CHECKOUT_SESSION_ID}`,
-                cancel_url: `${baseUrl}/upgrade?canceled=true`,
-                metadata: { userId: session.user.id }
-            });
+            // With PayPal, we'll use the user's email as the customer ID
+            const userEmail = session.user.email;
+
+            if (!userEmail) {
+                return NextResponse.json({ error: 'User email is required' }, { status: 400 });
+            }
+
+            // Create PayPal subscription
+            const { subscriptionId, approvalUrl } = await createSubscription(planId, userEmail);
 
             // Log successful checkout session creation
-            logger.info('Checkout session created', {
-                sessionId: checkoutSession.id,
+            logger.info('PayPal checkout session created', {
+                subscriptionId,
                 userId: session.user.id
             });
 
             return NextResponse.json({
                 success: true,
-                sessionId: checkoutSession.id,
-                url: checkoutSession.url
+                subscriptionId,
+                url: approvalUrl
             });
-        } catch (stripeError) {
-            logger.error('Failed to create checkout session', {
-                error: stripeError instanceof Error ? stripeError.message : String(stripeError),
-                priceId,
-                customerId: stripeCustomerId
+        } catch (err) {
+            logger.error('Failed to create PayPal checkout session', {
+                error: err instanceof Error ? err.message : String(err),
+                planId
             });
             return NextResponse.json({
                 error: 'Failed to create checkout session'
             }, { status: 500 });
         }
-    } catch (error) {
+    } catch (err) {
         logger.error('create-checkout error', {
-            error: error instanceof Error ? error.message : String(error)
+            error: err instanceof Error ? err.message : String(err)
         });
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
     }

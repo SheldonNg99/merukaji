@@ -1,97 +1,183 @@
+// app/api/payment/webhook/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { stripe } from '@/lib/stripe-server';
-import { PRICE_IDS } from '@/lib/stripe-client';
+import { PRICE_IDS } from '@/lib/paypal-client';
 import { supabaseAdmin } from '@/lib/supabase';
-import Stripe from 'stripe';
+import { logger } from '@/lib/logger';
 
-function getTierFromPriceId(priceId: string): string {
+// Function to get tier from plan ID
+function getTierFromPlanId(planId: string): string {
     const map = {
         [PRICE_IDS.pro.monthly]: 'pro',
         [PRICE_IDS.pro.yearly]: 'pro',
         [PRICE_IDS.max.monthly]: 'max',
         [PRICE_IDS.max.yearly]: 'max',
     };
-    return map[priceId] || 'free';
+    return map[planId] || 'free';
 }
 
 export async function POST(req: NextRequest) {
+    // Get the PayPal webhook event
     const body = await req.text();
-    const signature = req.headers.get('stripe-signature')!;
-    let event: Stripe.Event;
 
+    // Parse the payload
+    let event;
     try {
-        event = stripe.webhooks.constructEvent(body, signature, process.env.STRIPE_WEBHOOK_SECRET!);
-    } catch (err: unknown) {
-        if (err instanceof Error) {
-            console.error('Webhook failed:', err.message);
-        } else {
-            console.error('Webhook failed:', err);
-        }
-        return NextResponse.json({ error: 'Webhook handler failed' }, { status: 500 });
+        event = JSON.parse(body);
+    } catch (err) {
+        logger.error('Failed to parse PayPal webhook payload', {
+            error: err instanceof Error ? err.message : String(err)
+        });
+        return NextResponse.json({ error: 'Invalid payload' }, { status: 400 });
     }
 
     try {
-        if (event.type === 'checkout.session.completed') {
-            const session = event.data.object as Stripe.Checkout.Session;
+        // Log the webhook event for debugging
+        logger.info('Received PayPal webhook event', {
+            eventType: event.event_type,
+            resourceType: event.resource_type,
+            eventId: event.id
+        });
 
-            if (!session.subscription) return NextResponse.json({ received: true });
+        // Handle subscription events
+        if (event.event_type === 'BILLING.SUBSCRIPTION.CREATED') {
+            // A subscription was created
+            const subscriptionId = event.resource.id;
+            const planId = event.resource.plan_id;
+            const customerId = event.resource.subscriber.email_address;
+            const tier = getTierFromPlanId(planId);
 
-            const subscription = await stripe.subscriptions.retrieve(session.subscription as string);
-            const priceId = subscription.items.data[0].price.id;
-            const tier = getTierFromPriceId(priceId);
-            const customerId = session.customer as string;
+            // Find the user by email
+            const { data: user, error: userError } = await supabaseAdmin
+                .from('users')
+                .select('id')
+                .eq('email', customerId)
+                .single();
+
+            if (userError) {
+                logger.error('User not found for PayPal subscription', {
+                    email: customerId,
+                    error: userError.message
+                });
+                return NextResponse.json({ error: 'User not found' }, { status: 404 });
+            }
 
             // Update user
             await supabaseAdmin
                 .from('users')
                 .update({
                     tier,
-                    stripe_subscription_id: subscription.id,
-                    stripe_customer_id: customerId,
-                    subscription_status: subscription.status,
+                    paypal_subscription_id: subscriptionId,
+                    subscription_status: event.resource.status,
                     updated_at: new Date().toISOString(),
                 })
-                .eq('stripe_customer_id', customerId);
+                .eq('id', user.id);
 
-            // Record transaction
-            await supabaseAdmin.from('transactions').insert({
-                user_id: session.metadata?.userId || null,
-                subscription_id: subscription.id,
-                price_id: priceId,
-                amount: session.amount_total,
-                currency: session.currency,
-                status: 'completed',
-                stripe_payment_intent_id: session.payment_intent,
-                stripe_customer_id: customerId,
-                created_at: new Date().toISOString(),
+            logger.info('User subscription created', {
+                userId: user.id,
+                subscriptionId,
+                tier
             });
 
-        } else if (
-            event.type === 'customer.subscription.updated' ||
-            event.type === 'customer.subscription.deleted'
-        ) {
-            const subscription = event.data.object as Stripe.Subscription;
-            const tier = subscription.status === 'active'
-                ? getTierFromPriceId(subscription.items.data[0].price.id)
+        } else if (event.event_type === 'BILLING.SUBSCRIPTION.ACTIVATED') {
+            // A subscription was activated
+            const subscriptionId = event.resource.id;
+            const planId = event.resource.plan_id;
+            const tier = getTierFromPlanId(planId);
+
+            // Find user by subscription ID
+            const { data: user, error: userError } = await supabaseAdmin
+                .from('users')
+                .select('id')
+                .eq('paypal_subscription_id', subscriptionId)
+                .single();
+
+            if (userError) {
+                logger.error('User not found for subscription activation', {
+                    subscriptionId,
+                    error: userError.message
+                });
+                return NextResponse.json({ error: 'User not found' }, { status: 404 });
+            }
+
+            // Update user's subscription status
+            await supabaseAdmin
+                .from('users')
+                .update({
+                    tier,
+                    subscription_status: 'ACTIVE',
+                    updated_at: new Date().toISOString(),
+                })
+                .eq('id', user.id);
+
+            logger.info('User subscription activated', {
+                userId: user.id,
+                subscriptionId
+            });
+
+        } else if (event.event_type === 'BILLING.SUBSCRIPTION.UPDATED') {
+            // A subscription was updated
+            const subscriptionId = event.resource.id;
+            const status = event.resource.status;
+
+            // Status could be ACTIVE, SUSPENDED, CANCELLED, etc.
+            const tier = status === 'ACTIVE'
+                ? getTierFromPlanId(event.resource.plan_id)
                 : 'free';
 
             await supabaseAdmin
                 .from('users')
                 .update({
                     tier,
-                    subscription_status: subscription.status,
+                    subscription_status: status,
                     updated_at: new Date().toISOString(),
                 })
-                .eq('stripe_subscription_id', subscription.id);
+                .eq('paypal_subscription_id', subscriptionId);
+
+            logger.info('User subscription updated', {
+                subscriptionId,
+                status,
+                tier
+            });
+
+        } else if (event.event_type === 'BILLING.SUBSCRIPTION.CANCELLED') {
+            // A subscription was cancelled
+            const subscriptionId = event.resource.id;
+
+            await supabaseAdmin
+                .from('users')
+                .update({
+                    tier: 'free',
+                    subscription_status: 'CANCELLED',
+                    updated_at: new Date().toISOString(),
+                })
+                .eq('paypal_subscription_id', subscriptionId);
+
+            logger.info('User subscription cancelled', {
+                subscriptionId
+            });
+        } else if (event.event_type === 'BILLING.SUBSCRIPTION.PAYMENT.FAILED') {
+            // A subscription payment failed
+            const subscriptionId = event.resource.id;
+
+            await supabaseAdmin
+                .from('users')
+                .update({
+                    subscription_status: 'PAYMENT_FAILED',
+                    updated_at: new Date().toISOString(),
+                })
+                .eq('paypal_subscription_id', subscriptionId);
+
+            logger.info('User subscription payment failed', {
+                subscriptionId
+            });
         }
 
         return NextResponse.json({ received: true });
-    } catch (err: unknown) {
-        if (err instanceof Error) {
-            console.error('Webhook failed:', err.message);
-        } else {
-            console.error('Webhook failed:', err);
-        }
+    } catch (err) {
+        logger.error('Error processing PayPal webhook', {
+            error: err instanceof Error ? err.message : String(err),
+            eventType: event.event_type
+        });
 
         return NextResponse.json({ error: 'Webhook handler failed' }, { status: 500 });
     }
