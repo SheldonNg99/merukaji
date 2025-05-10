@@ -1,53 +1,45 @@
 import { loadScript } from "@paypal/paypal-js";
 
-export const SUBSCRIPTION_PLANS = {
+export const CREDIT_PACKAGES = {
     free: {
         name: 'Free',
         price: 0,
+        credits: 3,
         features: [
-            '3 summaries per day',
+            '3 free credits for new users',
             'Basic summary length',
             'Standard response time',
             'Public videos only'
         ],
     },
-    pro: {
-        name: 'Pro',
-        monthlyPrice: 19,
-        yearlyPrice: 17,
+    basic: {
+        name: 'Basic',
+        price: 750,
+        credits: 5,
         features: [
-            'Up to 20 summaries per day',
+            '5 credits',
+            'Extended summary length',
+            'Faster response time',
+            'Public and unlisted videos'
+        ],
+    },
+    standard: {
+        name: 'Standard',
+        price: 2250,
+        credits: 15,
+        features: [
+            '15 credits (15% discount)',
             'Extended summary length',
             'Faster response time',
             'Save summaries to your library',
             'Public and unlisted videos'
         ],
     },
-    max: {
-        name: 'Max',
-        monthlyPrice: 49,
-        yearlyPrice: 44,
-        features: [
-            'Unlimited summaries',
-            'Comprehensive summary length',
-            'Priority processing',
-            'Save and organize summaries',
-            'Full video library management',
-            'Private video support with account linking',
-            'Advanced AI model selection'
-        ],
-    },
 };
 
-export const PRICE_IDS = {
-    pro: {
-        monthly: process.env.NEXT_PUBLIC_PAYPAL_PRO_MONTHLY_PLAN_ID || '',
-        yearly: process.env.NEXT_PUBLIC_PAYPAL_PRO_YEARLY_PLAN_ID || '',
-    },
-    max: {
-        monthly: process.env.NEXT_PUBLIC_PAYPAL_MAX_MONTHLY_PLAN_ID || '',
-        yearly: process.env.NEXT_PUBLIC_PAYPAL_MAX_YEARLY_PLAN_ID || '',
-    },
+export const PRODUCT_IDS = {
+    basic: process.env.NEXT_PUBLIC_PAYPAL_BASIC_PRODUCT_ID || '',
+    standard: process.env.NEXT_PUBLIC_PAYPAL_STANDARD_PRODUCT_ID || '',
 };
 
 // Load the PayPal SDK dynamically
@@ -56,7 +48,7 @@ export async function loadPayPalScript() {
         // Use camelCase for the options
         clientId: process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID || '',
         currency: "JPY",
-        intent: "subscription",
+        intent: "capture",  // Changed from "subscription" to "capture" for one-time payments
         components: "buttons"
     });
 }
@@ -67,10 +59,8 @@ export const isPayPalConfigured = () => {
 
     return Boolean(
         clientId &&
-        PRICE_IDS.pro.monthly &&
-        PRICE_IDS.pro.yearly &&
-        PRICE_IDS.max.monthly &&
-        PRICE_IDS.max.yearly
+        PRODUCT_IDS.basic &&
+        PRODUCT_IDS.standard
     );
 };
 

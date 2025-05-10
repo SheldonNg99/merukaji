@@ -1,18 +1,20 @@
 // app/api/payment/webhook/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { PRICE_IDS } from '@/lib/paypal-client';
 import { supabaseAdmin } from '@/lib/supabase';
 import { logger } from '@/lib/logger';
+import { CREDIT_PACKAGES } from '@/lib/paypal-client';
 
-// Function to get tier from plan ID
-function getTierFromPlanId(planId: string): string {
-    const map = {
-        [PRICE_IDS.pro.monthly]: 'pro',
-        [PRICE_IDS.pro.yearly]: 'pro',
-        [PRICE_IDS.max.monthly]: 'max',
-        [PRICE_IDS.max.yearly]: 'max',
-    };
-    return map[planId] || 'free';
+// Function to determine credit amount from product reference
+function getCreditsFromProductId(productId: string): number {
+    if (productId.includes('basic')) {
+        return CREDIT_PACKAGES.basic.credits;
+    } else if (productId.includes('standard')) {
+        return CREDIT_PACKAGES.standard.credits;
+    } else {
+        // Default fallback - should log as warning
+        logger.warn('Unknown product ID in webhook', { productId });
+        return 5; // Default to basic package
+    }
 }
 
 export async function POST(req: NextRequest) {
@@ -38,137 +40,112 @@ export async function POST(req: NextRequest) {
             eventId: event.id
         });
 
-        // Handle subscription events
-        if (event.event_type === 'BILLING.SUBSCRIPTION.CREATED') {
-            // A subscription was created
-            const subscriptionId = event.resource.id;
-            const planId = event.resource.plan_id;
-            const customerId = event.resource.subscriber.email_address;
-            const tier = getTierFromPlanId(planId);
+        // Handle payment capture events (for one-time purchases)
+        if (event.event_type === 'PAYMENT.CAPTURE.COMPLETED') {
+            // Extract required information from the event
+            const transactionId = event.resource.id;
+            const paypalOrderId = event.resource.supplementary_data?.related_ids?.order_id;
+            const payerEmail = event.resource.payer_email || event.resource.payer_info?.email_address;
+            const amount = parseFloat(event.resource.amount.value);
+            const currency = event.resource.amount.currency_code;
+
+            // If no order ID or payer information, log error and return
+            if (!paypalOrderId || !payerEmail) {
+                logger.error('Missing information in PayPal webhook', {
+                    transactionId,
+                    paypalOrderId,
+                    payerEmail
+                });
+                return NextResponse.json({ error: 'Incomplete payment data' }, { status: 400 });
+            }
+
+            // Find or fetch additional order info if needed
+            // For simplicity, let's assume the productId is in the transaction's custom field
+            // In a real implementation, you might need to call PayPal API to get order details
+            const productId = event.resource.custom_id || 'basic'; // Default to basic if not specified
 
             // Find the user by email
             const { data: user, error: userError } = await supabaseAdmin
                 .from('users')
                 .select('id')
-                .eq('email', customerId)
+                .eq('email', payerEmail)
                 .single();
 
             if (userError) {
-                logger.error('User not found for PayPal subscription', {
-                    email: customerId,
+                logger.error('User not found for PayPal transaction', {
+                    email: payerEmail,
                     error: userError.message
                 });
                 return NextResponse.json({ error: 'User not found' }, { status: 404 });
             }
 
-            // Update user
-            await supabaseAdmin
-                .from('users')
-                .update({
-                    tier,
-                    paypal_subscription_id: subscriptionId,
-                    subscription_status: event.resource.status,
-                    updated_at: new Date().toISOString(),
+            // Determine credits to add
+            const creditsToAdd = getCreditsFromProductId(productId);
+
+            // First record the transaction
+            const { data: transaction, error: transactionError } = await supabaseAdmin
+                .from('transactions')
+                .insert({
+                    user_id: user.id,
+                    amount: amount,
+                    currency: currency,
+                    status: 'completed',
+                    paypal_transaction_id: transactionId,
+                    created_at: new Date().toISOString(),
                 })
-                .eq('id', user.id);
-
-            logger.info('User subscription created', {
-                userId: user.id,
-                subscriptionId,
-                tier
-            });
-
-        } else if (event.event_type === 'BILLING.SUBSCRIPTION.ACTIVATED') {
-            // A subscription was activated
-            const subscriptionId = event.resource.id;
-            const planId = event.resource.plan_id;
-            const tier = getTierFromPlanId(planId);
-
-            // Find user by subscription ID
-            const { data: user, error: userError } = await supabaseAdmin
-                .from('users')
                 .select('id')
-                .eq('paypal_subscription_id', subscriptionId)
                 .single();
 
-            if (userError) {
-                logger.error('User not found for subscription activation', {
-                    subscriptionId,
-                    error: userError.message
+            if (transactionError) {
+                logger.error('Failed to record transaction', {
+                    error: transactionError.message,
+                    userId: user.id,
+                    transactionId
                 });
-                return NextResponse.json({ error: 'User not found' }, { status: 404 });
+                return NextResponse.json({ error: 'Failed to record transaction' }, { status: 500 });
             }
 
-            // Update user's subscription status
-            await supabaseAdmin
+            // Add credits to the user's account
+            const { error: creditError } = await supabaseAdmin
+                .from('credits')
+                .insert({
+                    user_id: user.id,
+                    amount: creditsToAdd,
+                    description: `Purchase: ${creditsToAdd} credits`,
+                    transaction_id: transaction.id,
+                    created_at: new Date().toISOString(),
+                });
+
+            if (creditError) {
+                logger.error('Failed to add credits', {
+                    error: creditError.message,
+                    userId: user.id,
+                    credits: creditsToAdd
+                });
+                return NextResponse.json({ error: 'Failed to add credits' }, { status: 500 });
+            }
+
+            // Update user's credit balance
+            const { error: updateError } = await supabaseAdmin
                 .from('users')
                 .update({
-                    tier,
-                    subscription_status: 'ACTIVE',
+                    credit_balance: supabaseAdmin.rpc('increment', { x: creditsToAdd }),
                     updated_at: new Date().toISOString(),
                 })
                 .eq('id', user.id);
 
-            logger.info('User subscription activated', {
+            if (updateError) {
+                logger.error('Failed to update user credit balance', {
+                    error: updateError.message,
+                    userId: user.id
+                });
+                return NextResponse.json({ error: 'Failed to update user balance' }, { status: 500 });
+            }
+
+            logger.info('Credits added successfully', {
                 userId: user.id,
-                subscriptionId
-            });
-
-        } else if (event.event_type === 'BILLING.SUBSCRIPTION.UPDATED') {
-            // A subscription was updated
-            const subscriptionId = event.resource.id;
-            const status = event.resource.status;
-
-            // Status could be ACTIVE, SUSPENDED, CANCELLED, etc.
-            const tier = status === 'ACTIVE'
-                ? getTierFromPlanId(event.resource.plan_id)
-                : 'free';
-
-            await supabaseAdmin
-                .from('users')
-                .update({
-                    tier,
-                    subscription_status: status,
-                    updated_at: new Date().toISOString(),
-                })
-                .eq('paypal_subscription_id', subscriptionId);
-
-            logger.info('User subscription updated', {
-                subscriptionId,
-                status,
-                tier
-            });
-
-        } else if (event.event_type === 'BILLING.SUBSCRIPTION.CANCELLED') {
-            // A subscription was cancelled
-            const subscriptionId = event.resource.id;
-
-            await supabaseAdmin
-                .from('users')
-                .update({
-                    tier: 'free',
-                    subscription_status: 'CANCELLED',
-                    updated_at: new Date().toISOString(),
-                })
-                .eq('paypal_subscription_id', subscriptionId);
-
-            logger.info('User subscription cancelled', {
-                subscriptionId
-            });
-        } else if (event.event_type === 'BILLING.SUBSCRIPTION.PAYMENT.FAILED') {
-            // A subscription payment failed
-            const subscriptionId = event.resource.id;
-
-            await supabaseAdmin
-                .from('users')
-                .update({
-                    subscription_status: 'PAYMENT_FAILED',
-                    updated_at: new Date().toISOString(),
-                })
-                .eq('paypal_subscription_id', subscriptionId);
-
-            logger.info('User subscription payment failed', {
-                subscriptionId
+                credits: creditsToAdd,
+                transactionId
             });
         }
 

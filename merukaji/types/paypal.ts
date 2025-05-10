@@ -67,3 +67,83 @@ export interface PayPalButtonsComponentOptions {
 export interface PayPalNamespace {
     Buttons: (options?: PayPalButtonsComponentOptions) => PayPalButtonsComponent;
 }
+
+// Add this at the top of the file with the other imports and types
+
+// Interfaces for PayPal responses
+export interface PayPalAmount {
+    currency_code: string;
+    value: string;
+}
+
+export interface PayPalCapture {
+    id: string;
+    status: string;
+    amount: PayPalAmount;
+    final_capture: boolean;
+    disbursement_mode: string;
+    seller_protection: {
+        status: string;
+        dispute_categories: string[];
+    };
+    seller_receivable_breakdown: {
+        gross_amount: PayPalAmount;
+        paypal_fee: PayPalAmount;
+        net_amount: PayPalAmount;
+    };
+    links: Array<{
+        href: string;
+        rel: string;
+        method: string;
+    }>;
+    create_time: string;
+    update_time: string;
+}
+
+export interface PayPalPaymentSource {
+    paypal: {
+        email_address: string;
+        account_id: string;
+        name: {
+            given_name: string;
+            surname: string;
+        };
+        address?: {
+            country_code: string;
+        };
+    };
+}
+
+export interface PayPalCaptureDetails {
+    id: string;
+    status: string;
+    payment_source: PayPalPaymentSource;
+    purchase_units: Array<{
+        reference_id: string;
+        shipping?: {
+            address: {
+                address_line_1: string;
+                admin_area_2: string;
+                admin_area_1: string;
+                postal_code: string;
+                country_code: string;
+            };
+        };
+        payments: {
+            captures: PayPalCapture[];
+        };
+    }>;
+    payer: {
+        name: {
+            given_name: string;
+            surname: string;
+        };
+        email_address: string;
+        payer_id: string;
+    };
+    links: Array<{
+        href: string;
+        rel: string;
+        method: string;
+    }>;
+}
