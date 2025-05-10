@@ -2,20 +2,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { logger } from '@/lib/logger';
-import { CREDIT_PACKAGES } from '@/lib/paypal-client';
-
-// Function to determine credit amount from product reference
-function getCreditsFromProductId(productId: string): number {
-    if (productId.includes('basic')) {
-        return CREDIT_PACKAGES.basic.credits;
-    } else if (productId.includes('standard')) {
-        return CREDIT_PACKAGES.standard.credits;
-    } else {
-        // Default fallback - should log as warning
-        logger.warn('Unknown product ID in webhook', { productId });
-        return 5; // Default to basic package
-    }
-}
 
 export async function POST(req: NextRequest) {
     // Get the PayPal webhook event
@@ -42,76 +28,74 @@ export async function POST(req: NextRequest) {
 
         // Handle payment capture events (for one-time purchases)
         if (event.event_type === 'PAYMENT.CAPTURE.COMPLETED') {
-            // Extract required information from the event
+            // Extract the transaction ID from the event
             const transactionId = event.resource.id;
-            const paypalOrderId = event.resource.supplementary_data?.related_ids?.order_id;
-            const payerEmail = event.resource.payer_email || event.resource.payer_info?.email_address;
-            const amount = parseFloat(event.resource.amount.value);
-            const currency = event.resource.amount.currency_code;
 
-            // If no order ID or payer information, log error and return
-            if (!paypalOrderId || !payerEmail) {
-                logger.error('Missing information in PayPal webhook', {
-                    transactionId,
-                    paypalOrderId,
-                    payerEmail
-                });
-                return NextResponse.json({ error: 'Incomplete payment data' }, { status: 400 });
-            }
-
-            // Find or fetch additional order info if needed
-            // For simplicity, let's assume the productId is in the transaction's custom field
-            // In a real implementation, you might need to call PayPal API to get order details
-            const productId = event.resource.custom_id || 'basic'; // Default to basic if not specified
-
-            // Find the user by email
-            const { data: user, error: userError } = await supabaseAdmin
-                .from('users')
-                .select('id')
-                .eq('email', payerEmail)
-                .single();
-
-            if (userError) {
-                logger.error('User not found for PayPal transaction', {
-                    email: payerEmail,
-                    error: userError.message
-                });
-                return NextResponse.json({ error: 'User not found' }, { status: 404 });
-            }
-
-            // Determine credits to add
-            const creditsToAdd = getCreditsFromProductId(productId);
-
-            // First record the transaction
+            // Find the transaction in our database using the PayPal transaction ID
             const { data: transaction, error: transactionError } = await supabaseAdmin
                 .from('transactions')
-                .insert({
-                    user_id: user.id,
-                    amount: amount,
-                    currency: currency,
-                    status: 'completed',
-                    paypal_transaction_id: transactionId,
-                    created_at: new Date().toISOString(),
-                })
-                .select('id')
+                .select('id, user_id, credit_package_id, status')
+                .eq('paypal_transaction_id', transactionId)
                 .single();
 
-            if (transactionError) {
-                logger.error('Failed to record transaction', {
-                    error: transactionError.message,
-                    userId: user.id,
-                    transactionId
+            if (transactionError || !transaction) {
+                logger.error('Transaction not found for PayPal webhook', {
+                    paypalTransactionId: transactionId,
+                    error: transactionError?.message || 'Transaction not found'
                 });
-                return NextResponse.json({ error: 'Failed to record transaction' }, { status: 500 });
+
+                // This could be a duplicate webhook, so return 200 to acknowledge receipt
+                return NextResponse.json({
+                    received: true,
+                    message: 'Transaction not found in our records'
+                });
             }
+
+            // Check if this transaction has already been processed
+            if (transaction.status === 'completed') {
+                logger.info('Transaction already processed', {
+                    transactionId: transaction.id,
+                    paypalTransactionId: transactionId
+                });
+
+                return NextResponse.json({
+                    received: true,
+                    message: 'Transaction already processed'
+                });
+            }
+
+            // Get credit package details
+            const { data: creditPackage, error: packageError } = await supabaseAdmin
+                .from('credit_packages')
+                .select('credit_amount')
+                .eq('id', transaction.credit_package_id)
+                .single();
+
+            if (packageError || !creditPackage) {
+                logger.error('Credit package not found', {
+                    packageId: transaction.credit_package_id,
+                    error: packageError?.message || 'Package not found'
+                });
+
+                return NextResponse.json({ error: 'Credit package not found' }, { status: 404 });
+            }
+
+            // Update transaction status to completed
+            await supabaseAdmin
+                .from('transactions')
+                .update({
+                    status: 'completed',
+                    updated_at: new Date().toISOString()
+                })
+                .eq('id', transaction.id);
 
             // Add credits to the user's account
             const { error: creditError } = await supabaseAdmin
                 .from('credits')
                 .insert({
-                    user_id: user.id,
-                    amount: creditsToAdd,
-                    description: `Purchase: ${creditsToAdd} credits`,
+                    user_id: transaction.user_id,
+                    amount: creditPackage.credit_amount,
+                    description: `Purchase: ${creditPackage.credit_amount} credits`,
                     transaction_id: transaction.id,
                     created_at: new Date().toISOString(),
                 });
@@ -119,36 +103,39 @@ export async function POST(req: NextRequest) {
             if (creditError) {
                 logger.error('Failed to add credits', {
                     error: creditError.message,
-                    userId: user.id,
-                    credits: creditsToAdd
+                    userId: transaction.user_id,
+                    credits: creditPackage.credit_amount
                 });
                 return NextResponse.json({ error: 'Failed to add credits' }, { status: 500 });
             }
 
             // Update user's credit balance
-            const { error: updateError } = await supabaseAdmin
-                .from('users')
-                .update({
-                    credit_balance: supabaseAdmin.rpc('increment', { x: creditsToAdd }),
-                    updated_at: new Date().toISOString(),
-                })
-                .eq('id', user.id);
+            const { error: updateError } = await supabaseAdmin.rpc('update_credit_balance', {
+                user_id: transaction.user_id,
+                amount: creditPackage.credit_amount
+            });
 
             if (updateError) {
                 logger.error('Failed to update user credit balance', {
                     error: updateError.message,
-                    userId: user.id
+                    userId: transaction.user_id
                 });
                 return NextResponse.json({ error: 'Failed to update user balance' }, { status: 500 });
             }
 
             logger.info('Credits added successfully', {
-                userId: user.id,
-                credits: creditsToAdd,
-                transactionId
+                userId: transaction.user_id,
+                credits: creditPackage.credit_amount,
+                transactionId: transaction.id
+            });
+
+            return NextResponse.json({
+                received: true,
+                message: 'Credits added successfully'
             });
         }
 
+        // Always acknowledge receipt of the webhook
         return NextResponse.json({ received: true });
     } catch (err) {
         logger.error('Error processing PayPal webhook', {

@@ -2,9 +2,9 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/authOptions';
-import { getCustomerPortalUrl } from '@/lib/paypal-server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { logger } from '@/lib/logger';
+import { CreditRecord, TransactionRecord } from '@/types/paypal';
 
 export async function GET() {
     try {
@@ -13,60 +13,96 @@ export async function GET() {
             return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
         }
 
-        logger.info('Payment portal requested', {
+        logger.info('Credit history requested', {
             userId: session.user.id
         });
 
-        // Get user's PayPal subscription info
-        const { data: user, error } = await supabaseAdmin
+        // Get user's credit balance
+        const { data: user, error: userError } = await supabaseAdmin
             .from('users')
-            .select('paypal_subscription_id, subscription_status')
+            .select('credit_balance')
             .eq('id', session.user.id)
             .single();
 
-        if (error || !user) {
-            logger.error('Failed to fetch user subscription data', {
+        if (userError || !user) {
+            logger.error('Failed to fetch user credit balance', {
                 userId: session.user.id,
-                error: error?.message
+                error: userError?.message
             });
-            return NextResponse.json({ error: 'Failed to fetch subscription details' }, { status: 500 });
+            return NextResponse.json({ error: 'Failed to fetch credit balance' }, { status: 500 });
         }
 
-        if (!user.paypal_subscription_id) {
-            logger.info('No PayPal subscription found for user', {
-                userId: session.user.id
+        // Get user's credit history
+        const { data: credits, error: creditsError } = await supabaseAdmin
+            .from('credits')
+            .select('amount, description, created_at')
+            .eq('user_id', session.user.id)
+            .order('created_at', { ascending: false })
+            .limit(10);
+
+        if (creditsError) {
+            logger.error('Failed to fetch credit history', {
+                userId: session.user.id,
+                error: creditsError?.message
             });
-            return NextResponse.json({
-                error: 'No active subscription found. Please subscribe first.'
-            }, { status: 404 });
+            return NextResponse.json({ error: 'Failed to fetch credit history' }, { status: 500 });
         }
 
-        try {
-            // With PayPal, we'll get a general portal URL 
-            // (PayPal doesn't support direct deep linking to specific subscriptions)
-            const portalUrl = await getCustomerPortalUrl();
+        // Get user's transaction history
+        const { data: transactions, error: transactionsError } = await supabaseAdmin
+            .from('transactions')
+            .select(`
+                id, 
+                amount, 
+                currency, 
+                status, 
+                created_at,
+                credit_packages(name, credit_amount)
+            `)
+            .eq('user_id', session.user.id)
+            .order('created_at', { ascending: false })
+            .limit(10);
 
-            logger.info('PayPal portal URL generated successfully', {
+        if (transactionsError) {
+            logger.error('Failed to fetch transaction history', {
                 userId: session.user.id,
-                subscription_status: user.subscription_status,
+                error: transactionsError?.message
             });
-
-            return NextResponse.json({
-                url: portalUrl,
-                status: user.subscription_status || 'unknown'
-            });
-        } catch (error) {
-            logger.error('Failed to generate PayPal portal URL', {
-                userId: session.user.id,
-                error: error instanceof Error ? error.message : String(error)
-            });
-
-            return NextResponse.json({
-                error: 'Failed to create subscription management link. Please try again later.'
-            }, { status: 500 });
+            return NextResponse.json({ error: 'Failed to fetch transaction history' }, { status: 500 });
         }
+
+        // Format the credit transactions for easier display
+        const formattedCredits = (credits as CreditRecord[]).map(credit => ({
+            amount: credit.amount,
+            description: credit.description,
+            date: credit.created_at
+        }));
+
+        // Use a type assertion with a more specific type
+        const typedTransactions = transactions as unknown as TransactionRecord[];
+
+        // Format the purchase transactions for easier display
+        const formattedTransactions = typedTransactions.map(transaction => ({
+            id: transaction.id,
+            amount: transaction.amount,
+            currency: transaction.currency,
+            status: transaction.status,
+            date: transaction.created_at,
+            package: transaction.credit_packages && transaction.credit_packages.length > 0
+                ? transaction.credit_packages[0].name
+                : 'Unknown package',
+            credits: transaction.credit_packages && transaction.credit_packages.length > 0
+                ? transaction.credit_packages[0].credit_amount
+                : 0
+        }));
+
+        return NextResponse.json({
+            balance: user.credit_balance,
+            credits: formattedCredits,
+            transactions: formattedTransactions
+        });
     } catch (error) {
-        logger.error('Unexpected error in payment portal route', {
+        logger.error('Unexpected error in credit history route', {
             error: error instanceof Error ? error.message : String(error)
         });
 

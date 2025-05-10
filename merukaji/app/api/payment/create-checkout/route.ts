@@ -2,8 +2,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/authOptions';
-import { createSubscription } from '@/lib/paypal-server';
+import { createOrder } from '@/lib/paypal-server';
 import { logger } from '@/lib/logger';
+import { supabaseAdmin } from '@/lib/supabase';
 
 export async function POST(req: NextRequest) {
     try {
@@ -26,43 +27,89 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
         }
 
-        const { planId } = body;
+        const { packageId } = body;
 
-        // Validate planId
-        if (!planId?.startsWith('P-')) {
-            logger.error('Invalid PayPal plan ID provided', { planId });
-            return NextResponse.json({ error: 'Invalid plan ID' }, { status: 400 });
+        // Validate packageId
+        if (!packageId) {
+            logger.error('No package ID provided', { packageId });
+            return NextResponse.json({ error: 'Package ID is required' }, { status: 400 });
         }
 
-        // Log the plan ID being used
-        logger.info('Using PayPal plan ID', { planId });
+        // Get package details from database
+        const { data: creditPackage, error: packageError } = await supabaseAdmin
+            .from('credit_packages')
+            .select('*')
+            .eq('id', packageId)
+            .single();
+
+        if (packageError || !creditPackage) {
+            logger.error('Invalid package ID', { packageId, error: packageError?.message });
+            return NextResponse.json({ error: 'Invalid package ID' }, { status: 400 });
+        }
+
+        if (!creditPackage.is_active) {
+            logger.error('Package is not active', { packageId });
+            return NextResponse.json({ error: 'This package is no longer available' }, { status: 400 });
+        }
+
+        // Log the package being used
+        logger.info('Using credit package', {
+            packageId,
+            name: creditPackage.name,
+            credits: creditPackage.credit_amount,
+            price: creditPackage.price
+        });
 
         try {
-            // With PayPal, we'll use the user's email as the customer ID
             const userEmail = session.user.email;
 
             if (!userEmail) {
                 return NextResponse.json({ error: 'User email is required' }, { status: 400 });
             }
 
-            // Create PayPal subscription
-            const { subscriptionId, approvalUrl } = await createSubscription(planId, userEmail);
+            // Create PayPal order for one-time payment
+            const { orderId, approvalUrl } = await createOrder(
+                creditPackage.product_id,
+                creditPackage.price
+            );
 
             // Log successful checkout session creation
             logger.info('PayPal checkout session created', {
-                subscriptionId,
+                orderId,
                 userId: session.user.id
             });
 
+            // Store the pending transaction
+            const { error: transactionError } = await supabaseAdmin
+                .from('transactions')
+                .insert({
+                    user_id: session.user.id,
+                    amount: creditPackage.price,
+                    currency: 'JPY',
+                    status: 'pending',
+                    credit_package_id: creditPackage.id,
+                    paypal_transaction_id: orderId,
+                    created_at: new Date().toISOString(),
+                });
+
+            if (transactionError) {
+                logger.error('Failed to record pending transaction', {
+                    error: transactionError.message,
+                    userId: session.user.id,
+                    orderId
+                });
+                // Continue anyway as this is not critical
+            }
+
             return NextResponse.json({
                 success: true,
-                subscriptionId,
+                orderId,
                 url: approvalUrl
             });
         } catch (err) {
             logger.error('Failed to create PayPal checkout session', {
                 error: err instanceof Error ? err.message : String(err),
-                planId
+                packageId
             });
             return NextResponse.json({
                 error: 'Failed to create checkout session'

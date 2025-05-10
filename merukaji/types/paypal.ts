@@ -147,3 +147,26 @@ export interface PayPalCaptureDetails {
         method: string;
     }>;
 }
+
+// Define proper TypeScript interfaces for our data
+export interface CreditRecord {
+    amount: number;
+    description: string;
+    created_at: string;
+}
+
+// More specific interface for credit package
+export interface CreditPackage {
+    name: string;
+    credit_amount: number;
+}
+
+// Corrected interface to match Supabase's return format for nested relations
+export interface TransactionRecord {
+    id: string;
+    amount: number;
+    currency: string;
+    status: string;
+    created_at: string;
+    credit_packages: CreditPackage[];
+}
