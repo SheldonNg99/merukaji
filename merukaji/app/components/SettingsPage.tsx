@@ -5,7 +5,7 @@ import { CreditCard, User, Moon, Sun } from 'lucide-react';
 import { ThemeToggle } from './ThemeToggle';
 import { useToast } from '@/app/components/contexts/ToastContext';
 import { UserSettings } from '@/lib/settings';
-import SubscriptionDetails from './SubscriptionDetails';
+import CreditHistory from './CreditHistory';
 
 export default function SettingsPage() {
     const [activeTab, setActiveTab] = useState('profile');
@@ -266,7 +266,7 @@ export default function SettingsPage() {
                         )}
 
                         {activeTab === 'billing' && (
-                            <SubscriptionDetails />
+                            <CreditHistory />
                         )}
                     </div>
                 </div>

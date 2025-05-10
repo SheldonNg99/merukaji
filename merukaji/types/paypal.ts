@@ -170,3 +170,20 @@ export interface TransactionRecord {
     created_at: string;
     credit_packages: CreditPackage[];
 }
+
+export interface CreditTransaction {
+    id: string;
+    amount: number;
+    description: string;
+    date: string;
+}
+
+export interface PurchaseTransaction {
+    id: string;
+    amount: number;
+    currency: string;
+    status: string;
+    date: string;
+    package: string;
+    credits: number;
+}

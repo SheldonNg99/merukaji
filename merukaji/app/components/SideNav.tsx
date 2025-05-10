@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import { AlignLeft, AlignRight, ChevronDown, Settings, CreditCard, Layout, LogOut } from 'lucide-react';
+import { AlignLeft, AlignRight, ChevronDown, Settings, Layout, LogOut, Coins } from 'lucide-react';
 import Link from 'next/link';
 import { useSession, signOut } from 'next-auth/react';
 import { SideNavProps } from '@/types/sidenav-types';
@@ -17,6 +17,7 @@ export default function SideNav({ isDesktopSidebarOpen, onDesktopSidebarChange }
     const [isMobileOpen, setIsMobileOpen] = useState(false);
     const [isProfileOpen, setIsProfileOpen] = useState(false);
     const [historyItems, setHistoryItems] = useState<HistoryItem[]>([]);
+    const [creditBalance, setCreditBalance] = useState<number | null>(null);
     const [, setMounted] = useState(false);
 
     // Ref for the profile dropdown container
@@ -44,6 +45,25 @@ export default function SideNav({ isDesktopSidebarOpen, onDesktopSidebarChange }
             fetchHistory();
         }
     }, [session]);
+
+    // Add a useEffect to fetch credit balance
+    useEffect(() => {
+        const fetchCreditBalance = async () => {
+            if (session?.user) {
+                try {
+                    const response = await fetch('/api/credits/balance');
+                    if (response.ok) {
+                        const data = await response.json();
+                        setCreditBalance(data.balance);
+                    }
+                } catch (error) {
+                    console.error('Failed to fetch credit balance:', error);
+                }
+            }
+        };
+
+        fetchCreditBalance();
+    }, [session?.user]);
 
     useEffect(() => {
         if (session?.user) {
@@ -217,13 +237,11 @@ export default function SideNav({ isDesktopSidebarOpen, onDesktopSidebarChange }
                                         }}
                                         className="px-4 py-3 hover:bg-[#f8faff] dark:hover:bg-[#383838] cursor-pointer transition-colors flex items-center gap-3 text-sm text-gray-700 dark:text-gray-300"
                                     >
-                                        <CreditCard className="h-4 w-4 text-gray-400 dark:text-gray-500" />
+                                        <Coins className="h-4 w-4 text-gray-400 dark:text-gray-500" />
                                         <div>
-                                            <span>Plan Details</span>
+                                            <span>Credit Balance</span>
                                             <span className="ml-2 px-2 py-0.5 text-xs font-medium bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 rounded-full">
-                                                {session?.user?.tier
-                                                    ? session.user.tier.charAt(0).toUpperCase() + session.user.tier.slice(1)
-                                                    : 'Free'}
+                                                {creditBalance !== null ? `${creditBalance} credits` : 'Loading...'}
                                             </span>
                                         </div>
                                     </li>
