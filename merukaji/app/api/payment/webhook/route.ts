@@ -110,15 +110,36 @@ export async function POST(req: NextRequest) {
             }
 
             // Update user's credit balance
-            const { error: updateError } = await supabaseAdmin.rpc('update_credit_balance', {
-                user_id: transaction.user_id,
-                amount: creditPackage.credit_amount
-            });
+            const { data: userData, error: balanceReadError } = await supabaseAdmin
+                .from('users')
+                .select('credit_balance')
+                .eq('id', transaction.user_id)
+                .single();
+
+            if (balanceReadError) {
+                logger.error('Failed to read user credit balance', {
+                    userId: transaction.user_id,
+                    error: balanceReadError.message
+                });
+                return NextResponse.json({ error: 'Failed to read user balance' }, { status: 500 });
+            }
+
+            // Calculate new balance and update
+            const currentBalance = userData?.credit_balance || 0;
+            const newBalance = currentBalance + creditPackage.credit_amount;
+
+            const { error: updateError } = await supabaseAdmin
+                .from('users')
+                .update({
+                    credit_balance: newBalance,
+                    updated_at: new Date().toISOString()
+                })
+                .eq('id', transaction.user_id);
 
             if (updateError) {
                 logger.error('Failed to update user credit balance', {
-                    error: updateError.message,
-                    userId: transaction.user_id
+                    userId: transaction.user_id,
+                    error: updateError.message
                 });
                 return NextResponse.json({ error: 'Failed to update user balance' }, { status: 500 });
             }

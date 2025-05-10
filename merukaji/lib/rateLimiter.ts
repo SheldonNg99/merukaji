@@ -1,70 +1,83 @@
+// lib/rateLimiter.ts
 import { supabaseAdmin } from "./supabase";
 import { logger } from "./logger";
-import { UsageQuota } from "@/types/ratelimit"
 
-// Tier-based usage quotas
-const TIER_QUOTAS: Record<string, UsageQuota> = {
-    free: {
-        tier: 'free',
-        dailyLimit: 3,
-        minuteLimit: 1
-    },
-    pro: {
-        tier: 'pro',
-        dailyLimit: 20,
-        minuteLimit: 3
-    },
-    max: {
-        tier: 'max',
-        dailyLimit: 100,
-        minuteLimit: 10
-    }
+// Tier-based usage quotas for API rate limits (separate from credits)
+const TIER_QUOTAS = {
+    // Requests per minute - to prevent abuse
+    minuteLimit: 5
 };
+
+// Free tier settings
+const FREE_CREDITS = 3;
+const FREE_CREDIT_PERIOD_DAYS = 30;
 
 // Cleanup retention period in days
 const USAGE_RETENTION_DAYS = 30;
 
 /**
- * Check if the user has exceeded their rate limits
+ * Check if the user has sufficient credits for the requested operation
  */
-export async function checkRateLimit(userId: string, tier: string = 'free'): Promise<{
+export async function checkCreditAvailability(userId: string, requiredCredits: number = 1): Promise<{
     allowed: boolean;
     reason?: string;
-    remaining: { daily: number; minute: number; }
-    resetTime?: { daily: Date; minute: Date; }
+    remaining: number;
+    requiresUpgrade?: boolean;
 }> {
     try {
-        const userQuota = TIER_QUOTAS[tier] || TIER_QUOTAS.free;
         const now = new Date();
 
-        // Get the start of the current day in UTC
-        const startOfDay = new Date(now);
-        startOfDay.setHours(0, 0, 0, 0);
+        // Get user's credit balance
+        const { data: user, error: userError } = await supabaseAdmin
+            .from('users')
+            .select('credit_balance, free_tier_used, last_credit_reset')
+            .eq('id', userId)
+            .single();
 
-        // Get the start of the current minute
+        if (userError) {
+            throw userError;
+        }
+
+        // Initialize credit balance if not set
+        let creditBalance = user.credit_balance || 0;
+
+        // Check if free credits should be applied
+        if (!user.free_tier_used || shouldResetFreeCredits(user.last_credit_reset)) {
+            const { creditBalance: updatedBalance, wasReset } = await handleFreeCredits(
+                userId,
+                creditBalance,
+                user.free_tier_used,
+                user.last_credit_reset
+            );
+
+            creditBalance = updatedBalance;
+
+            if (wasReset) {
+                // Update the return value since we just added free credits
+                logger.info('Free credits reset applied', { userId, newBalance: creditBalance });
+            }
+        }
+
+        // Check if sufficient credits
+        if (creditBalance < requiredCredits) {
+            logger.info('Insufficient credits', {
+                userId,
+                required: requiredCredits,
+                available: creditBalance
+            });
+
+            return {
+                allowed: false,
+                reason: 'insufficient_credits',
+                remaining: creditBalance,
+                requiresUpgrade: true
+            };
+        }
+
+        // Check minute rate limit to prevent abuse
         const startOfMinute = new Date(now);
         startOfMinute.setSeconds(0, 0);
 
-        // Calculate when the limits reset
-        const nextDay = new Date(startOfDay);
-        nextDay.setDate(nextDay.getDate() + 1);
-
-        const nextMinute = new Date(startOfMinute);
-        nextMinute.setMinutes(nextMinute.getMinutes() + 1);
-
-        // Get daily usage count
-        const { count: dailyUsage, error: dailyError } = await supabaseAdmin
-            .from('usage_stats')
-            .select('*', { count: 'exact', head: true })
-            .eq('user_id', userId)
-            .gte('timestamp', startOfDay.toISOString())
-            .eq('reset', false);
-
-        if (dailyError) {
-            throw dailyError;
-        }
-
-        // Get minute usage count
         const { count: minuteUsage, error: minuteError } = await supabaseAdmin
             .from('usage_stats')
             .select('*', { count: 'exact', head: true })
@@ -76,103 +89,102 @@ export async function checkRateLimit(userId: string, tier: string = 'free'): Pro
             throw minuteError;
         }
 
-        // Calculate remaining
-        const dailyRemaining = Math.max(0, userQuota.dailyLimit - (dailyUsage || 0));
-        const minuteRemaining = Math.max(0, userQuota.minuteLimit - (minuteUsage || 0));
-
-        // Check if user has exceeded limits
-        if ((dailyUsage || 0) >= userQuota.dailyLimit) {
+        if ((minuteUsage || 0) >= TIER_QUOTAS.minuteLimit) {
             return {
                 allowed: false,
-                reason: 'daily_limit_exceeded',
-                remaining: { daily: dailyRemaining, minute: minuteRemaining },
-                resetTime: { daily: nextDay, minute: nextMinute }
-            };
-        }
-
-        if ((minuteUsage || 0) >= userQuota.minuteLimit) {
-            return {
-                allowed: false,
-                reason: 'minute_limit_exceeded',
-                remaining: { daily: dailyRemaining, minute: minuteRemaining },
-                resetTime: { daily: nextDay, minute: nextMinute }
+                reason: 'rate_limit_exceeded',
+                remaining: creditBalance
             };
         }
 
         return {
             allowed: true,
-            remaining: { daily: dailyRemaining, minute: minuteRemaining },
-            resetTime: { daily: nextDay, minute: nextMinute }
+            remaining: creditBalance
         };
     } catch (error) {
-        logger.error('Failed to check rate limits', {
+        logger.error('Failed to check credit availability', {
             userId,
             error: error instanceof Error ? error.message : String(error)
         });
 
         // In case of error, allow the request but log it
-        return { allowed: true, remaining: { daily: 0, minute: 0 } };
+        return { allowed: true, remaining: 0 };
     }
 }
 
 /**
- * Record usage for rate limiting
+ * Determine if free credits should be reset based on last reset date
  */
-export async function recordUsage(userId: string, videoId: string): Promise<void> {
-    try {
-        const { error } = await supabaseAdmin
-            .from('usage_stats')
-            .insert({
-                user_id: userId,
-                video_id: videoId,
-                timestamp: new Date().toISOString(),
-                action: 'summarize',
-                reset: false
-            });
+function shouldResetFreeCredits(lastReset: string | null): boolean {
+    if (!lastReset) return true;
 
-        if (error) {
-            throw error;
-        }
+    const now = new Date();
+    const resetDate = new Date(lastReset);
+    const daysSinceReset = Math.floor((now.getTime() - resetDate.getTime()) / (1000 * 60 * 60 * 24));
 
-        logger.info('Recorded usage for rate limiting', { userId, videoId });
-    } catch (error) {
-        logger.error('Failed to record usage', {
-            userId,
-            videoId,
-            error: error instanceof Error ? error.message : String(error)
-        });
-    }
+    return daysSinceReset >= FREE_CREDIT_PERIOD_DAYS;
 }
 
 /**
- * Explicitly reset a user's daily usage limit
- * Useful for administrative purposes or testing
+ * Handle the assignment of free credits to users
  */
-export async function resetUserDailyLimit(userId: string): Promise<boolean> {
+async function handleFreeCredits(
+    userId: string,
+    currentBalance: number,
+    freeTierUsed: boolean,
+    lastReset: string | null
+): Promise<{ creditBalance: number, wasReset: boolean }> {
     try {
-        const startOfDay = new Date();
-        startOfDay.setHours(0, 0, 0, 0);
+        const now = new Date();
+        let wasReset = false;
 
-        const { error } = await supabaseAdmin
-            .from('usage_stats')
-            .update({ reset: true })
-            .eq('user_id', userId)
-            .gte('timestamp', startOfDay.toISOString())
-            .eq('reset', false);
+        // First-time user or eligible for reset
+        if (!freeTierUsed || shouldResetFreeCredits(lastReset)) {
+            // Add free credits
+            const { error: creditError } = await supabaseAdmin
+                .from('credits')
+                .insert({
+                    user_id: userId,
+                    amount: FREE_CREDITS,
+                    description: freeTierUsed
+                        ? `Monthly free ${FREE_CREDITS} credits reset`
+                        : `Welcome! ${FREE_CREDITS} free credits`,
+                    created_at: now.toISOString(),
+                });
 
-        if (error) {
-            throw error;
+            if (creditError) {
+                throw creditError;
+            }
+
+            // Update user's free tier status and balance directly
+            const newBalance = currentBalance + FREE_CREDITS;
+            const { error: updateError } = await supabaseAdmin
+                .from('users')
+                .update({
+                    free_tier_used: true,
+                    last_credit_reset: now.toISOString(),
+                    credit_balance: newBalance,
+                    updated_at: now.toISOString()
+                })
+                .eq('id', userId);
+
+            if (updateError) {
+                throw updateError;
+            }
+
+            wasReset = true;
+            return { creditBalance: newBalance, wasReset };
         }
 
-        logger.info('Manually reset daily limit for user', { userId });
-        return true;
+        return { creditBalance: currentBalance, wasReset };
     } catch (error) {
-        logger.error('Failed to reset user daily limit', {
+        logger.error('Failed to handle free credits', {
             userId,
             error: error instanceof Error ? error.message : String(error)
         });
 
-        return false;
+        // Return original balance if something went wrong
+        return { creditBalance: currentBalance, wasReset: false };
     }
 }
 
@@ -209,106 +221,5 @@ export async function cleanupOldUsageRecords(): Promise<number> {
         });
 
         return 0;
-    }
-}
-
-/**
- * Get a user's current usage statistics
- */
-export async function getUserUsageStats(userId: string): Promise<{
-    dailyUsage: number;
-    dailyLimit: number;
-    dailyRemaining: number;
-    nextReset: Date;
-    usageHistory: { date: string; count: number }[];
-}> {
-    try {
-        // Get user tier
-        const { data: userData, error: userError } = await supabaseAdmin
-            .from('users')
-            .select('tier')
-            .eq('id', userId)
-            .single();
-
-        if (userError) {
-            throw userError;
-        }
-
-        const userTier = userData?.tier || 'free';
-        const userQuota = TIER_QUOTAS[userTier] || TIER_QUOTAS.free;
-
-        // Get start of today
-        const startOfDay = new Date();
-        startOfDay.setHours(0, 0, 0, 0);
-
-        // Get daily usage
-        const { count: dailyUsage, error: countError } = await supabaseAdmin
-            .from('usage_stats')
-            .select('*', { count: 'exact', head: true })
-            .eq('user_id', userId)
-            .gte('timestamp', startOfDay.toISOString())
-            .eq('reset', false);
-
-        if (countError) {
-            throw countError;
-        }
-
-        // Calculate next reset time
-        const nextReset = new Date(startOfDay);
-        nextReset.setDate(nextReset.getDate() + 1);
-
-        // Get usage history for the last 7 days
-        const startOfWeek = new Date();
-        startOfWeek.setDate(startOfWeek.getDate() - 6); // Last 7 days including today
-        startOfWeek.setHours(0, 0, 0, 0);
-
-        // This is more complex with Supabase - we'll need to do some post-processing
-        const { data: usageData, error: usageError } = await supabaseAdmin
-            .from('usage_stats')
-            .select('timestamp')
-            .eq('user_id', userId)
-            .gte('timestamp', startOfWeek.toISOString())
-            .eq('reset', false);
-
-        if (usageError) {
-            throw usageError;
-        }
-
-        // Group by date
-        const usageByDate = new Map<string, number>();
-        for (const item of usageData || []) {
-            const date = new Date(item.timestamp).toISOString().split('T')[0];
-            usageByDate.set(date, (usageByDate.get(date) || 0) + 1);
-        }
-
-        const usageHistory = Array.from(usageByDate.entries()).map(([date, count]) => ({
-            date,
-            count
-        }));
-
-        return {
-            dailyUsage: dailyUsage || 0,
-            dailyLimit: userQuota.dailyLimit,
-            dailyRemaining: Math.max(0, userQuota.dailyLimit - (dailyUsage || 0)),
-            nextReset,
-            usageHistory
-        };
-    } catch (error) {
-        logger.error('Failed to get user usage stats', {
-            userId,
-            error: error instanceof Error ? error.message : String(error)
-        });
-
-        // Return default values in case of error
-        const nextReset = new Date();
-        nextReset.setHours(24, 0, 0, 0);
-
-        return {
-            dailyUsage: 0,
-            dailyLimit: TIER_QUOTAS.free.dailyLimit,
-            dailyRemaining: TIER_QUOTAS.free.dailyLimit,
-            nextReset,
-            usageHistory: []
-        };
     }
 }
