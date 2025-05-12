@@ -1,41 +1,12 @@
-// app/components/UpgradePage.tsx
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { CheckCircle2, Loader2 } from 'lucide-react';
 import { useSession } from 'next-auth/react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useToast } from '@/app/components/contexts/ToastContext';
+import { CreditPackage } from '@/types/paypal';
 import Link from 'next/link';
-
-// Credit package type definition
-interface CreditPackage {
-    id: string;
-    name: string;
-    creditAmount: number;
-    price: number;
-    description: string;
-    productId: string;
-}
-
-// Define type for payment debug info
-interface PaymentDebugInfo {
-    timestamp: string;
-    params: {
-        success?: string | null;
-        orderId?: string | null;
-        token?: string | null;
-        PayerID?: string | null;
-        [key: string]: string | null | undefined;
-    };
-    verificationStatus?: number;
-    error?: string;
-    responseData?: Record<string, unknown>;
-    paymentSuccess?: boolean;
-    sessionUpdated?: boolean;
-    updatedBalance?: number;
-    [key: string]: unknown;
-}
 
 export default function UpgradePage() {
     const { status, update: updateSession } = useSession();
@@ -45,26 +16,14 @@ export default function UpgradePage() {
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
     const [creditPackages, setCreditPackages] = useState<CreditPackage[]>([]);
     const [creditBalance, setCreditBalance] = useState<number>(0);
-    const [paymentDebugInfo, setPaymentDebugInfo] = useState<PaymentDebugInfo | null>(null);
 
     const { showToast } = useToast();
     const searchParams = useSearchParams();
     const router = useRouter();
 
-    // Log all URL parameters for debugging
-    useEffect(() => {
-        if (searchParams) {
-            const paramObj: Record<string, string> = {};
-            searchParams.forEach((value, key) => {
-                paramObj[key] = value;
-                console.log(`URL param: ${key} = ${value}`);
-            });
-
-            if (Object.keys(paramObj).length > 0) {
-                console.log('Payment callback received with parameters:', paramObj);
-            }
-        }
-    }, [searchParams]);
+    // Use refs to prevent duplicate processing
+    const processingRef = useRef(false);
+    const processedOrdersRef = useRef(new Set<string>());
 
     // Fetch credit packages and user credit balance on mount
     useEffect(() => {
@@ -72,28 +31,23 @@ export default function UpgradePage() {
             if (status !== 'loading') {
                 try {
                     setPageLoading(true);
-                    console.log('Loading credit packages and balance data...');
 
-                    // Fetch credit packages
-                    const packagesResponse = await fetch('/api/credits/packages');
-                    if (!packagesResponse.ok) {
-                        throw new Error('Failed to load credit packages');
+                    // Fetch credit packages and balance in parallel
+                    const [packagesResponse, balanceResponse] = await Promise.all([
+                        fetch('/api/credits/packages'),
+                        fetch('/api/credits/balance')
+                    ]);
+
+                    if (!packagesResponse.ok || !balanceResponse.ok) {
+                        throw new Error('Failed to load data');
                     }
+
                     const packagesData = await packagesResponse.json();
-                    console.log('Credit packages loaded:', packagesData.packages?.length || 0);
-
-                    // Fetch user's credit balance
-                    const balanceResponse = await fetch('/api/credits/balance');
-                    if (!balanceResponse.ok) {
-                        throw new Error('Failed to load credit balance');
-                    }
                     const balanceData = await balanceResponse.json();
-                    console.log('Initial credit balance:', balanceData.balance);
 
                     setCreditPackages(packagesData.packages || []);
                     setCreditBalance(balanceData.balance || 0);
-                } catch (error) {
-                    console.error('Error loading data:', error);
+                } catch {
                     showToast('Failed to load credit packages', 'error');
                 } finally {
                     setPageLoading(false);
@@ -110,84 +64,56 @@ export default function UpgradePage() {
 
         const success = searchParams.get('success');
         const canceled = searchParams.get('canceled');
-        const orderId = searchParams.get('token'); // PayPal uses token for orderId
+        const orderId = searchParams.get('token');
         const PayerID = searchParams.get('PayerID');
 
         if (!success && !canceled) return;
 
         async function processCheckoutResult() {
+            if (processingRef.current || (orderId && processedOrdersRef.current.has(orderId))) {
+                return;
+            }
+
             if (success === 'true' && orderId) {
                 try {
+                    processingRef.current = true;
+                    if (orderId) processedOrdersRef.current.add(orderId);
                     setButtonLoading('checking-status');
-                    console.log('Processing payment verification...', { orderId, PayerID });
 
-                    // Create a debug object to track the process
-                    const debugInfo: PaymentDebugInfo = {
-                        timestamp: new Date().toISOString(),
-                        params: {
-                            success,
-                            orderId,
-                            token: orderId, // Same as orderId for PayPal
-                            PayerID
-                        }
-                    };
-
-                    // Verify the payment status
-                    console.log('Calling payment verification API...');
                     const response = await fetch('/api/payment/check-status', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            orderId,
-                            PayerID
-                        }),
+                        body: JSON.stringify({ orderId, PayerID }),
                     });
-
-                    debugInfo.verificationStatus = response.status;
 
                     if (!response.ok) {
                         const errorData = await response.json();
-                        debugInfo.error = errorData.error;
-                        console.error('Payment verification failed:', errorData);
-                        throw new Error(errorData.error || `Server error: ${response.status}`);
+                        throw new Error(errorData.error || 'Payment verification failed');
                     }
 
                     const data = await response.json();
-                    debugInfo.responseData = data;
-                    console.log('Payment verification response:', data);
 
                     if (data.success) {
-                        // Force session update
-                        console.log('Updating session to reflect new credit balance...');
                         await updateSession();
-                        debugInfo.sessionUpdated = true;
 
-                        // Check if credits were actually added
-                        const balanceResponse = await fetch('/api/credits/balance');
-                        const balanceData = await balanceResponse.json();
+                        if (data.alreadyProcessed) {
+                            setSuccessMessage(`Your purchase was already processed. You have ${data.newBalance} credits.`);
+                        } else {
+                            setSuccessMessage(`Your purchase was successful! ${data.credits} credits have been added to your account.`);
+                        }
 
-                        debugInfo.updatedBalance = balanceData.balance;
-                        console.log('Updated balance after payment:', balanceData.balance);
-
-                        // Set success message
-                        setSuccessMessage(`Your purchase was successful! ${data.credits} credits have been added to your account.`);
-
-                        // Update credit balance
-                        setCreditBalance(balanceData.balance || 0);
-
-                        // Clean up URL params
+                        setCreditBalance(data.newBalance || 0);
                         router.replace('/upgrade');
                     } else {
-                        debugInfo.paymentSuccess = false;
                         setErrorMessage(data.error || 'Failed to verify payment status');
                     }
-
-                    setPaymentDebugInfo(debugInfo);
-                } catch (error) {
-                    console.error('Error checking payment status:', error);
-                    setErrorMessage('An unexpected error occurred. Please contact support with this reference: ' + new Date().toISOString());
+                } catch {
+                    setErrorMessage('An error occurred while processing your payment. Please contact support if the issue persists.');
                 } finally {
                     setButtonLoading(null);
+                    setTimeout(() => {
+                        processingRef.current = false;
+                    }, 2000);
                 }
             } else if (canceled) {
                 setErrorMessage('Your purchase was canceled. You can try again when you are ready.');
@@ -198,11 +124,9 @@ export default function UpgradePage() {
         processCheckoutResult();
     }, [searchParams, updateSession, showToast, router]);
 
-    // Handle payment button click
     const handlePurchase = async (packageId: string) => {
         setButtonLoading(packageId);
         try {
-            console.log('Creating checkout session for package:', packageId);
             const response = await fetch('/api/payment/create-checkout', {
                 method: 'POST',
                 headers: {
@@ -214,33 +138,14 @@ export default function UpgradePage() {
             const data = await response.json();
 
             if (!response.ok) {
-                console.error('Checkout creation failed:', data);
                 throw new Error(data.error || 'Failed to create checkout session');
             }
 
-            console.log('Checkout session created, redirecting to:', data.url);
-
-            // Redirect to PayPal checkout
             window.location.href = data.url;
-        } catch (error) {
-            console.error('Purchase error:', error);
+        } catch {
             showToast('Failed to start checkout process', 'error');
             setButtonLoading(null);
         }
-    };
-
-    // Debug information section for admins/developers
-    const renderPaymentDebug = () => {
-        if (!paymentDebugInfo) return null;
-
-        return (
-            <div className="mt-8 bg-gray-50 dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-700">
-                <h3 className="text-sm font-semibold mb-2">Debug Information (Developer Only)</h3>
-                <pre className="text-xs overflow-auto max-h-60 p-2 bg-gray-100 dark:bg-gray-900 rounded">
-                    {JSON.stringify(paymentDebugInfo, null, 2)}
-                </pre>
-            </div>
-        );
     };
 
     if (status === 'loading' || pageLoading) {
@@ -373,9 +278,6 @@ export default function UpgradePage() {
                             </div>
                         ))}
                     </div>
-
-                    {/* Payment debug info */}
-                    {renderPaymentDebug()}
 
                     {/* Footer text */}
                     <div className="mt-12 text-center text-gray-600 dark:text-gray-400 text-sm">

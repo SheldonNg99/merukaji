@@ -187,3 +187,26 @@ export interface PurchaseTransaction {
     package: string;
     credits: number;
 }
+
+// Type definition for PayPal order details
+export interface PayPalOrderDetails {
+    id: string;
+    status: string;
+    intent?: string;
+    purchase_units?: Array<{
+        reference_id?: string;
+        amount?: {
+            value?: string;
+            currency_code?: string;
+        };
+    }>;
+}
+
+export interface CreditPackage {
+    id: string;
+    name: string;
+    creditAmount: number;
+    price: number;
+    description: string;
+    productId: string;
+}

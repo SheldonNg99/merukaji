@@ -10,6 +10,7 @@ export async function POST(req: NextRequest) {
     try {
         const session = await getServerSession(authOptions);
         if (!session?.user) {
+            logger.error('Unauthorized checkout attempt');
             return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
         }
 
@@ -36,20 +37,39 @@ export async function POST(req: NextRequest) {
         }
 
         // Get package details from database
+        logger.info('Fetching credit package details', { packageId });
         const { data: creditPackage, error: packageError } = await supabaseAdmin
             .from('credit_packages')
             .select('*')
             .eq('id', packageId)
             .single();
 
-        if (packageError || !creditPackage) {
-            logger.error('Invalid package ID', { packageId, error: packageError?.message });
-            return NextResponse.json({ error: 'Invalid package ID' }, { status: 400 });
+        if (packageError) {
+            logger.error('Failed to fetch credit package', {
+                packageId,
+                error: packageError.message,
+                code: packageError.code
+            });
+            return NextResponse.json({ error: 'Invalid package ID' }, { status: 404 });
+        }
+
+        if (!creditPackage) {
+            logger.error('Credit package not found', { packageId });
+            return NextResponse.json({ error: 'Package not found' }, { status: 404 });
         }
 
         if (!creditPackage.is_active) {
             logger.error('Package is not active', { packageId });
             return NextResponse.json({ error: 'This package is no longer available' }, { status: 400 });
+        }
+
+        // Check if product_id exists and is valid
+        if (!creditPackage.product_id) {
+            logger.error('Package missing product_id', {
+                packageId,
+                packageData: creditPackage
+            });
+            return NextResponse.json({ error: 'Package configuration error' }, { status: 500 });
         }
 
         // Log the package being used
@@ -69,10 +89,50 @@ export async function POST(req: NextRequest) {
             }
 
             // Create PayPal order for one-time payment
-            const { orderId, approvalUrl } = await createOrder(
-                creditPackage.product_id,
-                creditPackage.price
-            );
+            logger.info('Creating PayPal order', {
+                productId: creditPackage.product_id,
+                price: creditPackage.price
+            });
+
+            let orderResult;
+            try {
+                orderResult = await createOrder(
+                    creditPackage.product_id,
+                    creditPackage.price
+                );
+            } catch (paypalError) {
+                logger.error('PayPal createOrder failed', {
+                    error: paypalError instanceof Error ? paypalError.message : String(paypalError),
+                    productId: creditPackage.product_id,
+                    price: creditPackage.price
+                });
+
+                // Check if it's a configuration error
+                const errorMessage = paypalError instanceof Error ? paypalError.message : String(paypalError);
+                if (errorMessage.includes('401') || errorMessage.includes('authentication')) {
+                    return NextResponse.json({
+                        error: 'Payment system configuration error. Please contact support.'
+                    }, { status: 503 });
+                }
+
+                return NextResponse.json({
+                    error: 'Failed to initialize payment process. Please try again.'
+                }, { status: 500 });
+            }
+
+            const { orderId, approvalUrl } = orderResult;
+
+            // Validate PayPal response
+            if (!orderId || !approvalUrl) {
+                logger.error('Invalid PayPal response', {
+                    orderId,
+                    approvalUrl,
+                    response: orderResult
+                });
+                return NextResponse.json({
+                    error: 'Invalid payment system response'
+                }, { status: 500 });
+            }
 
             // Log successful checkout session creation
             logger.info('PayPal checkout session created', {
@@ -100,7 +160,7 @@ export async function POST(req: NextRequest) {
                     userId: session.user.id,
                     orderId
                 });
-                // Continue anyway as this is not critical
+                // Continue anyway as this is not critical for the checkout process
             }
 
             return NextResponse.json({
@@ -108,19 +168,35 @@ export async function POST(req: NextRequest) {
                 orderId,
                 url: approvalUrl
             });
+
         } catch (err) {
             logger.error('Failed to create PayPal checkout session', {
                 error: err instanceof Error ? err.message : String(err),
-                packageId
+                packageId,
+                stack: err instanceof Error ? err.stack : undefined
             });
+
+            // Return a more specific error message based on the error type
+            const errorMessage = err instanceof Error ? err.message : String(err);
+
+            if (errorMessage.includes('PayPal API key') || errorMessage.includes('authentication')) {
+                return NextResponse.json({
+                    error: 'Payment system not properly configured. Please contact support.'
+                }, { status: 503 });
+            }
+
             return NextResponse.json({
-                error: 'Failed to create checkout session'
+                error: 'Failed to create checkout session. Please try again.'
             }, { status: 500 });
         }
     } catch (err) {
         logger.error('create-checkout error', {
-            error: err instanceof Error ? err.message : String(err)
+            error: err instanceof Error ? err.message : String(err),
+            stack: err instanceof Error ? err.stack : undefined
         });
-        return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+
+        return NextResponse.json({
+            error: 'Internal server error. Please try again.'
+        }, { status: 500 });
     }
 }
