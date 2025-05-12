@@ -132,6 +132,7 @@ export class YouTubeProcessor {
     /**
      * Get video metadata from YouTube API
      */
+    // In lib/youtube.ts
     async getVideoMetadata(videoId: string, retryCount = 0): Promise<VideoMetadata> {
         if (!YOUTUBE_API_KEY) {
             throw new Error('YouTube API key is not configured');
@@ -145,7 +146,13 @@ export class YouTubeProcessor {
             this.requestsThisMinute++;
 
             const response = await axios.get(
-                `https://www.googleapis.com/youtube/v3/videos?id=${videoId}&part=snippet,contentDetails&key=${YOUTUBE_API_KEY}`
+                `https://www.googleapis.com/youtube/v3/videos?id=${videoId}&part=snippet,contentDetails&key=${YOUTUBE_API_KEY}`,
+                {
+                    headers: {
+                        'User-Agent': 'Merukaji/1.0',
+                        'Accept': 'application/json'
+                    }
+                }
             );
 
             const videoData = response.data.items[0];
@@ -163,22 +170,42 @@ export class YouTubeProcessor {
                 duration: videoData.contentDetails.duration
             };
         } catch (error) {
+            // Handle 403 specifically
+            if (axios.isAxiosError(error) && error.response?.status === 403) {
+                logger.error('YouTube API 403 Error', {
+                    videoId,
+                    status: error.response.status,
+                    data: error.response.data,
+                    headers: error.response.headers
+                });
+
+                // Return minimal metadata without API
+                return this.getMetadataFallback(videoId);
+            }
+
             if (retryCount < MAX_RETRY_ATTEMPTS) {
-                // Exponential backoff
                 const delayTime = RETRY_DELAY * Math.pow(2, retryCount);
                 await this.delay(delayTime);
                 return this.getVideoMetadata(videoId, retryCount + 1);
             }
 
-            console.error(`Failed to get metadata for video ${videoId}:`, error);
+            logger.error(`Failed to get metadata for video ${videoId}:`);
 
-            // Fallback: Return basic metadata without API
-            return {
-                videoId,
-                title: 'Unknown Title',
-                thumbnailUrl: `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`
-            };
+            // Fallback to basic metadata
+            return this.getMetadataFallback(videoId);
         }
+    }
+
+    // Add a fallback method that doesn't use the API
+    private getMetadataFallback(videoId: string): VideoMetadata {
+        return {
+            videoId,
+            title: 'Video Title Unavailable',
+            thumbnailUrl: `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`,
+            channelTitle: 'Channel information unavailable',
+            publishedAt: new Date().toISOString(),
+            duration: 'Unknown'
+        };
     }
 
     /**
