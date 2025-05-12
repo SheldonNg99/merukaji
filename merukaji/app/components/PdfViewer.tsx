@@ -2,8 +2,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useSession } from 'next-auth/react';
-import { Download, File, Lock } from 'lucide-react';
+import { File } from 'lucide-react';
 import { VideoMetadata } from '@/types/youtube';
 import { generateSummaryPDF } from '@/lib/pdfGenerator';
 import { useToast } from '@/app/components/contexts/ToastContext';
@@ -16,13 +15,9 @@ interface PdfViewerProps {
 }
 
 export default function PdfViewer({ summary, metadata, timestamp, provider }: PdfViewerProps) {
-    const { data: session } = useSession();
     const [loading, setLoading] = useState(false);
     const [pdfUrl, setPdfUrl] = useState<string | null>(null);
     const { showToast } = useToast();
-
-    // Check if user can download PDFs (Pro and Max tiers only)
-    const canDownloadPdf = session?.user?.tier && ['pro', 'max'].includes(session.user.tier.toLowerCase());
 
     // Generate PDF when component mounts
     useEffect(() => {
@@ -31,9 +26,8 @@ export default function PdfViewer({ summary, metadata, timestamp, provider }: Pd
             if (summary) {
                 setLoading(true);
 
-                // Generate PDF - pass isFreeTier=true for free users to add watermark
-                const isFreeTier = !canDownloadPdf;
-                const pdfBlob = generateSummaryPDF(summary, metadata, timestamp, provider, isFreeTier);
+                // Generate PDF without watermark
+                const pdfBlob = generateSummaryPDF(summary, metadata, timestamp, provider, false);
 
                 // Create object URL for preview
                 const url = URL.createObjectURL(pdfBlob);
@@ -50,7 +44,7 @@ export default function PdfViewer({ summary, metadata, timestamp, provider }: Pd
         } finally {
             setLoading(false);
         }
-    }, [summary, metadata, timestamp, provider, canDownloadPdf, showToast]);
+    }, [summary, metadata, timestamp, provider, showToast]);
 
     // Handle PDF download
     const handleDownload = () => {
@@ -60,13 +54,7 @@ export default function PdfViewer({ summary, metadata, timestamp, provider }: Pd
                 return;
             }
 
-            // Free users see upgrade prompt instead of downloading
-            if (!canDownloadPdf) {
-                showToast('Upgrade to Pro or Max to download PDFs', 'info', 5000);
-                return;
-            }
-
-            // Generate PDF for download (no watermark for paid users)
+            // Generate PDF for download (no watermark)
             const pdfBlob = generateSummaryPDF(summary, metadata, timestamp, provider, false);
 
             // Create temporary download link
@@ -118,24 +106,9 @@ export default function PdfViewer({ summary, metadata, timestamp, provider }: Pd
                 </div>
                 <button
                     onClick={handleDownload}
-                    className={`px-3 py-1.5 rounded-lg flex items-center gap-2 transition-colors
-            ${canDownloadPdf
-                            ? 'bg-orange-500 hover:bg-orange-600 text-white'
-                            : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed'}`}
-                    disabled={!canDownloadPdf}
-                    title={canDownloadPdf ? "Download PDF" : "Upgrade to download"}
+                    className="px-3 py-1.5 rounded-lg flex items-center gap-2 transition-colors bg-orange-500 hover:bg-orange-600 text-white"
                 >
-                    {canDownloadPdf ? (
-                        <>
-                            <Download className="h-4 w-4" />
-                            <span>Download</span>
-                        </>
-                    ) : (
-                        <>
-                            <Lock className="h-4 w-4" />
-                            <span>Premium Feature</span>
-                        </>
-                    )}
+                    Download
                 </button>
             </div>
 
