@@ -1,4 +1,7 @@
+
 // app/components/SideNav.tsx
+'use client';
+
 import { useState, useEffect, useRef } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { AlignLeft, AlignRight, ChevronDown, Settings, Layout, LogOut, Coins } from 'lucide-react';
@@ -50,21 +53,23 @@ export default function SideNav({ isDesktopSidebarOpen, onDesktopSidebarChange }
     // Add a useEffect to fetch credit balance
     useEffect(() => {
         const fetchCreditBalance = async () => {
-            if (session?.user) {
-                try {
-                    const response = await fetch('/api/credits/balance');
-                    if (response.ok) {
-                        const data = await response.json();
-                        setCreditBalance(data.balance);
-                    }
-                } catch (error) {
-                    console.error('Failed to fetch credit balance:', error);
+            try {
+                const response = await fetch('/api/credits/balance');
+                if (response.ok) {
+                    const data = await response.json();
+                    setCreditBalance(data.balance);
                 }
+            } catch (error) {
+                console.error('Failed to fetch credit balance:', error);
             }
         };
 
+        // Fetch initially and then every 30 seconds
         fetchCreditBalance();
-    }, [session?.user]);
+        const interval = setInterval(fetchCreditBalance, 30000);
+
+        return () => clearInterval(interval);
+    }, []);
 
     useEffect(() => {
         if (session?.user) {
@@ -232,15 +237,10 @@ export default function SideNav({ isDesktopSidebarOpen, onDesktopSidebarChange }
                                 shadow-lg overflow-hidden mx-2
                                 ${!isDesktopSidebarOpen ? 'lg:left-full lg:w-52 lg:bottom-2 lg:rounded-l-none lg:rounded-r-lg' : 'left-0 w-[calc(100%-16px)]'}`}>
                                 <ul className="divide-y divide-gray-100 dark:divide-gray-700">
-                                    <li
-                                        onClick={() => {
-                                            closeProfileDropdown();
-                                        }}
-                                        className="px-4 py-3 hover:bg-[#f8faff] dark:hover:bg-[#383838] cursor-pointer transition-colors flex items-center gap-3 text-sm text-gray-700 dark:text-gray-300"
-                                    >
+                                    <li className="px-4 py-3 hover:bg-[#f8faff] dark:hover:bg-[#383838] cursor-pointer transition-colors flex items-center gap-3 text-sm text-gray-700 dark:text-gray-300">
                                         <Coins className="h-4 w-4 text-gray-400 dark:text-gray-500" />
                                         <div>
-                                            <span>Credit Balance</span>
+                                            <span>Balance</span>
                                             <span className="ml-2 px-2 py-0.5 text-xs font-medium bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 rounded-full">
                                                 {creditBalance !== null ? `${creditBalance} credits` : 'Loading...'}
                                             </span>

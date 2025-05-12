@@ -1,8 +1,8 @@
 // app/components/HomePage.tsx
 'use client';
 
-import { BookDown } from 'lucide-react';
 import { useState, useEffect } from 'react';
+import { BookDown } from 'lucide-react';
 import { useToast } from '@/app/components/contexts/ToastContext';
 import SummaryResultsPage from '@/app/components/SummaryResultsPage';
 import { VideoMetadata } from '@/types/youtube';
@@ -27,6 +27,7 @@ export default function HomePage() {
     const [mounted, setMounted] = useState(false);
     const router = useRouter();
     const { data: session } = useSession();
+
 
     useEffect(() => {
         setMounted(true);
@@ -178,7 +179,7 @@ export default function HomePage() {
                     </p>
                 </div>
 
-                {/* Search Section */}
+                {/* Search Section - Keep URL input only */}
                 <div className={`w-full max-w-2xl transition-all duration-300 ease-in-out ${isFocused ? 'scale-105' : 'scale-100'}`}>
                     <div className="flex gap-3 bg-[#f2f5f6] dark:bg-[#2E2E2E] p-2 rounded-2xl shadow-md hover:shadow-lg transition-shadow duration-300 border border-transparent dark:border-gray-700">
                         {/* Search Input */}
@@ -199,18 +200,18 @@ export default function HomePage() {
                             />
                         </div>
 
-                        {/* Search Button */}
+                        {/* Submit Button */}
                         <button
                             onClick={handleSubmit}
                             disabled={isLoading || isSummarizing || !youtubeUrl}
                             className={`px-5 py-3 bg-gradient-to-r from-orange-400 to-orange-500 hover:from-orange-500 hover:to-orange-600 
-                     text-white rounded-xl transition-all duration-300 ease-in-out hover:shadow-md 
-                     flex items-center justify-center ${isLoading || isSummarizing || !youtubeUrl ? 'opacity-75 cursor-not-allowed' : ''}`}
+                            text-white rounded-xl transition-all duration-300 ease-in-out hover:shadow-md 
+                            flex items-center justify-center ${isLoading || isSummarizing || !youtubeUrl ? 'opacity-75 cursor-not-allowed' : ''}`}
                         >
                             {isLoading || isSummarizing ? (
                                 <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                             ) : (
-                                <BookDown className="w-5 w-5" />
+                                <BookDown className="w-5" />
                             )}
                         </button>
                     </div>

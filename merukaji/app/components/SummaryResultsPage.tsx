@@ -248,18 +248,6 @@ const SummaryResultsPage = ({ summary, metadata, timestamp, provider }: SummaryR
                             </div>
                         </div>
 
-                        {/* Credit Status Card */}
-                        {session?.user?.credit_balance !== undefined && (
-                            <div className="bg-white dark:bg-[#2E2E2E] rounded-xl border border-gray-200 dark:border-gray-700 p-4 mb-4">
-                                <div className="flex justify-between items-center">
-                                    <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">Credit Balance</h3>
-                                    <span className="px-2.5 py-1 bg-orange-100 dark:bg-orange-900/20 text-orange-700 dark:text-orange-300 rounded-full text-sm font-medium">
-                                        {session.user.credit_balance} Credits
-                                    </span>
-                                </div>
-                            </div>
-                        )}
-
                         {/* Key Points Card - Scrollable with max-height */}
                         <div className="bg-white dark:bg-[#2E2E2E] rounded-xl border border-gray-200 dark:border-gray-700 flex flex-col mb-4 md:mb-0">
                             <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700">
@@ -291,7 +279,7 @@ const SummaryResultsPage = ({ summary, metadata, timestamp, provider }: SummaryR
                                     <button
                                         onClick={() => setActiveTab('summary')}
                                         className={`px-4 py-3 text-sm font-medium ${activeTab === 'summary'
-                                            ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-500'
+                                            ? 'text-orange-500 dark:text-orange-400 border-b-2 border-orange-500'
                                             : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
                                             }`}
                                     >
@@ -300,7 +288,7 @@ const SummaryResultsPage = ({ summary, metadata, timestamp, provider }: SummaryR
                                     <button
                                         onClick={() => setActiveTab('pdf')}
                                         className={`px-4 py-3 text-sm font-medium ${activeTab === 'pdf'
-                                            ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-500'
+                                            ? 'text-orange-500 dark:text-orange-400 border-b-2 border-orange-500'
                                             : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
                                             }`}
                                     >
