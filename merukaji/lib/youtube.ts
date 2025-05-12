@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { YoutubeTranscript } from 'youtube-transcript';
+import { CustomYouTubeTranscript } from './youtube-transcript-custom';
 import { supabaseAdmin } from './supabase';
 import {
     VideoMetadata,
@@ -109,22 +110,40 @@ export class YouTubeProcessor {
 
             this.requestsThisMinute++;
 
-            const transcriptData = await YoutubeTranscript.fetchTranscript(videoId);
+            // Try the original method first
+            try {
+                const transcriptData = await YoutubeTranscript.fetchTranscript(videoId);
+                logger.info('Transcript fetched successfully with youtube-transcript', { videoId });
 
-            return transcriptData.map(segment => ({
-                text: segment.text,
-                offset: segment.offset,
-                duration: segment.duration
-            }));
+                return transcriptData.map(segment => ({
+                    text: segment.text,
+                    offset: segment.offset,
+                    duration: segment.duration
+                }));
+            } catch (originalError) {
+                logger.warn('Original transcript method failed, trying custom method', {
+                    videoId,
+                    error: originalError instanceof Error ? originalError.message : String(originalError)
+                });
+
+                // Fallback to custom method
+                const customTranscript = await CustomYouTubeTranscript.fetchTranscript(videoId);
+                logger.info('Transcript fetched successfully with custom method', { videoId });
+
+                return customTranscript;
+            }
         } catch (error) {
             if (retryCount < MAX_RETRY_ATTEMPTS) {
-                // Exponential backoff
                 const delayTime = RETRY_DELAY * Math.pow(2, retryCount);
                 await this.delay(delayTime);
                 return this.getTranscript(videoId, retryCount + 1);
             }
 
-            console.error(`Failed to get transcript for video ${videoId}:`, error);
+            logger.error(`Failed to get transcript for video ${videoId}:`, {
+                error: error instanceof Error ? error.message : String(error),
+                stack: error instanceof Error ? error.stack : undefined
+            });
+
             throw new Error(`Could not retrieve transcript: ${error instanceof Error ? error.message : String(error)}`);
         }
     }
