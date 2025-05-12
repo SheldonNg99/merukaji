@@ -149,6 +149,7 @@ export class YouTubeProcessor {
                 `https://www.googleapis.com/youtube/v3/videos?id=${videoId}&part=snippet,contentDetails&key=${YOUTUBE_API_KEY}`,
                 {
                     headers: {
+                        'Referer': process.env.NEXT_PUBLIC_APP_URL || 'https://merukaji.com',
                         'User-Agent': 'Merukaji/1.0',
                         'Accept': 'application/json'
                     }
