@@ -7,7 +7,7 @@ import { extractVideoId, getVideoTranscript, getVideoMetadata } from '@/lib/yout
 import { convertTranscriptToParagraphs, formatSummary } from '@/lib/textProcessing';
 import { checkCreditAvailability } from '@/lib/rateLimiter';
 import { generateSummaryWithFallback } from '@/lib/fallbackMechanisms';
-import { validateYouTubeUrl, sanitizeInput } from '@/lib/securityUtils';
+import { validateYouTubeUrl } from '@/lib/securityUtils';
 import { logger } from '@/lib/logger';
 
 export async function POST(req: NextRequest) {
@@ -16,41 +16,86 @@ export async function POST(req: NextRequest) {
     try {
         logger.info('Summary request received', { requestId });
 
+        // 1. Authentication Check
         const session = await getServerSession(authOptions);
-        if (!session || !session.user) {
+        if (!session?.user) {
+            logger.warn('Unauthorized request', { requestId });
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
         const userId = session.user.id;
+        logger.info('User authenticated', { requestId, userId });
 
-        // Get request parameters
-        const { url, summaryType = 'short' } = await req.json();
+        // 2. Parse request body
+        let body;
+        try {
+            body = await req.json();
+            logger.info('Request body received', {
+                requestId,
+                url: body.url,
+                summaryType: body.summaryType,
+                hasMetadata: !!body.metadata
+            });
+        } catch (error) {
+            logger.error('Failed to parse request body', {
+                requestId,
+                error: error instanceof Error ? error.message : 'Unknown parsing error'
+            });
+            return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
+        }
 
-        const sanitizedUrl = sanitizeInput(url || '');
-        if (!url || !validateYouTubeUrl(sanitizedUrl)) {
-            return NextResponse.json({ error: 'Invalid YouTube URL' }, { status: 400 });
+        const { url, summaryType = 'short', metadata: providedMetadata } = body;
+
+        if (!url) {
+            logger.warn('No URL provided', { requestId });
+            return NextResponse.json({ error: 'URL is required' }, { status: 400 });
+        }
+
+        // 3. URL Validation
+        if (!validateYouTubeUrl(url)) {
+            logger.warn('Invalid YouTube URL format', {
+                requestId,
+                url
+            });
+            return NextResponse.json({
+                error: 'Invalid YouTube URL',
+                details: 'URL must be in format: https://www.youtube.com/watch?v=VIDEO_ID or https://youtu.be/VIDEO_ID'
+            }, { status: 400 });
         }
 
         const videoId = extractVideoId(url);
         if (!videoId) {
-            return NextResponse.json({ error: 'Invalid YouTube URL' }, { status: 400 });
+            return NextResponse.json({ error: 'Could not extract video ID' }, { status: 400 });
         }
 
-        // Calculate credit cost based on summary type
-        const creditCost = summaryType === 'comprehensive' ? 2 : 1;
+        logger.info('Video ID extracted', { requestId, videoId });
 
-        // Check if user has enough credits
+        // 4. Calculate credit cost
+        const creditCost = summaryType === 'comprehensive' ? 2 : 1;
+        logger.info('Credit cost calculated', {
+            requestId,
+            summaryType,
+            creditCost
+        });
+
+        // 5. Check credit availability
         const creditCheck = await checkCreditAvailability(userId, creditCost);
+        logger.info('Credit check completed', {
+            requestId,
+            allowed: creditCheck.allowed,
+            remaining: creditCheck.remaining
+        });
+
         if (!creditCheck.allowed) {
             return NextResponse.json({
                 error: 'Insufficient credits',
                 details: creditCheck.reason,
                 credits: creditCheck.remaining,
                 requiresUpgrade: creditCheck.requiresUpgrade
-            }, { status: 402 }); // 402: Payment Required
+            }, { status: 402 });
         }
 
-        // Check if summary is already cached
+        // 6. Check cache
         const { data: cached } = await supabaseAdmin
             .from('summaries')
             .select('*')
@@ -59,9 +104,8 @@ export async function POST(req: NextRequest) {
             .eq('summary_type', summaryType)
             .single();
 
-        // If cached, return it without deducting credits
         if (cached) {
-            logger.info('Returning cached summary', {
+            logger.info('Cache hit', {
                 requestId,
                 videoId,
                 summaryId: cached.id
@@ -76,172 +120,151 @@ export async function POST(req: NextRequest) {
                 timestamp: cached.created_at,
                 cached: true,
                 credits: {
-                    used: 0, // No credits used for cached summaries
+                    used: 0,
                     remaining: creditCheck.remaining
                 }
             });
         }
 
-        // Continue with transcript extraction and summarization
-        const [metadata, transcript] = await Promise.all([
-            getVideoMetadata(videoId),
-            getVideoTranscript(videoId)
-        ]);
+        logger.info('Cache miss, proceeding with summary generation', {
+            requestId,
+            videoId
+        });
 
-        const paragraphs = convertTranscriptToParagraphs(transcript);
-        const processedTranscript = paragraphs.join('\n\n');
+        // 7. Process Video and Generate Summary
+        try {
+            // Use provided metadata or fetch new
+            const metadata = providedMetadata || await getVideoMetadata(videoId);
+            const transcript = await getVideoTranscript(videoId);
 
-        // Choose AI provider based on summary type
-        const preferredProvider = summaryType === 'comprehensive' ? 'openai' : 'gemini';
-
-        const summaryResult = await generateSummaryWithFallback(
-            processedTranscript,
-            metadata,
-            summaryType as 'short' | 'comprehensive',
-            preferredProvider as 'gemini' | 'openai'
-        );
-
-        const formattedSummary = formatSummary(summaryResult.summary);
-
-        // Deduct credits from user
-        const { error: creditError } = await supabaseAdmin
-            .from('credits')
-            .insert({
-                user_id: userId,
-                amount: -creditCost,
-                description: `Used: ${creditCost} credit${creditCost > 1 ? 's' : ''} for ${summaryType} summary`,
-                created_at: new Date().toISOString(),
-            });
-
-        if (creditError) {
-            logger.error('Failed to record credit usage', {
+            logger.info('Video data fetched', {
                 requestId,
-                userId,
-                credits: creditCost,
-                error: creditError.message
+                hasTranscript: !!transcript,
+                transcriptLength: transcript?.length || 0,
+                hasMetadata: !!metadata
             });
-            // Continue anyway, as we want to deliver the summary even if credit tracking fails
-        }
 
-        // Update user's credit balance
-        const { data: userData, error: balanceReadError } = await supabaseAdmin
-            .from('users')
-            .select('credit_balance')
-            .eq('id', userId)
-            .single();
+            if (!transcript || transcript.length === 0) {
+                throw new Error('No transcript available for this video');
+            }
 
-        if (balanceReadError) {
-            logger.error('Failed to read user credit balance', {
+            // Process transcript
+            const paragraphs = convertTranscriptToParagraphs(transcript);
+            const processedTranscript = paragraphs.join('\n\n');
+
+            // Generate summary
+            const preferredProvider = summaryType === 'comprehensive' ? 'openai' : 'gemini';
+            logger.info('Starting summary generation', {
                 requestId,
-                userId,
-                error: balanceReadError.message
+                provider: preferredProvider,
+                transcriptLength: processedTranscript.length
             });
-        }
 
-        // Calculate new balance and update
-        const currentBalance = userData?.credit_balance || 0;
-        const newBalance = currentBalance - creditCost;
+            const summaryResult = await generateSummaryWithFallback(
+                processedTranscript,
+                metadata,
+                summaryType,
+                preferredProvider
+            );
 
-        const { error: balanceError } = await supabaseAdmin
-            .from('users')
-            .update({
-                credit_balance: newBalance,
-                updated_at: new Date().toISOString()
-            })
-            .eq('id', userId);
+            const formattedSummary = formatSummary(summaryResult.summary);
 
-        if (balanceError) {
-            logger.error('Failed to update user credit balance', {
+            logger.info('Summary generated', {
                 requestId,
-                userId,
-                credits: creditCost,
-                error: balanceError.message
+                summaryLength: formattedSummary.length,
+                actualProvider: summaryResult.provider
             });
-            // Continue anyway
-        }
 
-        // Save summary to database
-        const { data: insertResult, error: insertError } = await supabaseAdmin
-            .from('summaries')
-            .insert({
-                user_id: userId,
-                video_id: videoId,
-                summary_type: summaryType,
+            // Start database transaction
+            const { data: transaction, error: transactionError } = await supabaseAdmin
+                .rpc('handle_summary_creation', {
+                    p_user_id: userId,
+                    p_video_id: videoId,
+                    p_summary_type: summaryType,
+                    p_summary: formattedSummary,
+                    p_metadata: metadata,
+                    p_provider: summaryResult.provider,
+                    p_credit_cost: creditCost,
+                    p_credits_description: `Used: ${creditCost} credit${creditCost > 1 ? 's' : ''} for ${summaryType} summary`
+                });
+
+            if (transactionError) {
+                logger.error('Transaction failed', {
+                    requestId,
+                    error: transactionError.message
+                });
+                throw new Error('Failed to process summary');
+            }
+
+            logger.info('Database transaction completed', {
+                requestId,
+                summaryId: transaction.summary_id
+            });
+
+            // Get updated balance
+            const { data: userData } = await supabaseAdmin
+                .from('users')
+                .select('credit_balance')
+                .eq('id', userId)
+                .single();
+
+            const newBalance = userData?.credit_balance || 0;
+
+            // Record usage
+            await supabaseAdmin
+                .from('usage_stats')
+                .insert({
+                    user_id: userId,
+                    video_id: videoId,
+                    action: 'summarize',
+                    timestamp: new Date().toISOString(),
+                    reset: false
+                });
+
+            logger.info('Summary process completed successfully', {
+                requestId,
+                videoId,
+                summaryId: transaction.summary_id,
+                creditsUsed: creditCost,
+                remainingCredits: newBalance
+            });
+
+            return NextResponse.json({
+                success: true,
+                id: transaction.summary_id,
                 summary: formattedSummary,
                 metadata,
                 provider: summaryResult.provider,
-                credits_used: creditCost,
-                created_at: new Date().toISOString(),
-            })
-            .select('id, created_at')
-            .single();
-
-        if (insertError) {
-            logger.error('Failed to save summary', {
-                requestId,
-                videoId,
-                error: insertError.message
-            });
-        }
-
-        // Record usage statistics
-        const { error: usageError } = await supabaseAdmin
-            .from('usage_stats')
-            .insert({
-                user_id: userId,
-                video_id: videoId,
-                action: 'summarize',
                 timestamp: new Date().toISOString(),
-                reset: false
+                credits: {
+                    used: creditCost,
+                    remaining: newBalance
+                }
             });
 
-        if (usageError) {
-            logger.error('Failed to record usage stats', {
+        } catch (error) {
+            logger.error('Error processing video', {
                 requestId,
-                userId,
                 videoId,
-                error: usageError.message
+                error: error instanceof Error ? error.message : String(error),
+                stack: error instanceof Error ? error.stack : undefined
             });
+
+            return NextResponse.json({
+                error: 'Failed to process video',
+                details: error instanceof Error ? error.message : 'Unknown error'
+            }, { status: 500 });
         }
-
-        // Get updated credit balance
-        const { data: userCredits } = await supabaseAdmin
-            .from('users')
-            .select('credit_balance')
-            .eq('id', userId)
-            .single();
-
-        const remainingCredits = userCredits?.credit_balance || 0;
-
-        logger.info('Summary generated successfully', {
-            requestId,
-            videoId,
-            summaryId: insertResult?.id,
-            creditsUsed: creditCost,
-            remainingCredits
-        });
-
-        return NextResponse.json({
-            success: true,
-            id: insertResult?.id || null,
-            summary: formattedSummary,
-            metadata,
-            provider: summaryResult.provider,
-            timestamp: insertResult?.created_at || new Date().toISOString(),
-            credits: {
-                used: creditCost,
-                remaining: remainingCredits
-            }
-        });
 
     } catch (error) {
         logger.error('Failed to generate summary', {
             requestId,
-            error: error instanceof Error ? error.message : String(error)
+            error: error instanceof Error ? error.message : String(error),
+            stack: error instanceof Error ? error.stack : undefined
         });
 
         return NextResponse.json({
-            error: `Failed to generate summary: ${error instanceof Error ? error.message : String(error)}`
+            error: 'Internal server error'
         }, { status: 500 });
     }
 }

@@ -1,36 +1,45 @@
+// app/components/HomePage.tsx
 'use client';
 
 import { BookDown } from 'lucide-react';
 import { useState, useEffect } from 'react';
-import { TranscriptResponse } from '@/types/youtube';
 import { useToast } from '@/app/components/contexts/ToastContext';
 import SummaryResultsPage from '@/app/components/SummaryResultsPage';
 import { VideoMetadata } from '@/types/youtube';
 import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
+
+const YOUTUBE_URL_PATTERN = /^(https?:\/\/)?(www\.)?(youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})$/;
 
 export default function HomePage() {
     const { showToast } = useToast();
     const [isFocused, setIsFocused] = useState(false);
     const [youtubeUrl, setYoutubeUrl] = useState('');
     const [isLoading, setIsLoading] = useState(false);
-    const [, setResult] = useState<TranscriptResponse | null>(null);
-    const [, setError] = useState<string | null>(null);
-    const [, setMounted] = useState(false);
-    const router = useRouter();
     const [summaryData, setSummaryData] = useState<{
         summary: string;
         metadata: VideoMetadata;
         timestamp: string;
         provider: string;
     } | null>(null);
-    const [summaryType,] = useState<'short' | 'comprehensive'>('short');
+    const [summaryType] = useState<'short' | 'comprehensive'>('short');
     const [isSummarizing, setIsSummarizing] = useState(false);
-    const [, setRateLimits] = useState<{ daily: number; minute: number } | null>(null);
+    const [mounted, setMounted] = useState(false);
+    const router = useRouter();
+    const { data: session } = useSession();
 
-    // Set mounted state once the component is mounted
     useEffect(() => {
         setMounted(true);
     }, []);
+
+    const extractVideoId = (url: string): string | null => {
+        const match = url.match(YOUTUBE_URL_PATTERN);
+        return match ? match[4] : null;
+    };
+
+    const validateYoutubeUrl = (url: string): boolean => {
+        return YOUTUBE_URL_PATTERN.test(url);
+    };
 
     const handleSubmit = async () => {
         if (!youtubeUrl) {
@@ -38,15 +47,19 @@ export default function HomePage() {
             return;
         }
 
+        // Validate YouTube URL format
+        if (!validateYoutubeUrl(youtubeUrl)) {
+            showToast('Please enter a valid YouTube URL (e.g., https://youtube.com/watch?v=... or https://youtu.be/...)', 'error');
+            return;
+        }
+
         setIsLoading(true);
-        setError(null);
-        setResult(null);
         setSummaryData(null);
         setIsSummarizing(false);
 
         try {
             // First fetch transcript
-            const response = await fetch('/api/youtube/transcript', {
+            const transcriptResponse = await fetch('/api/youtube/transcript', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -54,18 +67,23 @@ export default function HomePage() {
                 body: JSON.stringify({ url: youtubeUrl }),
             });
 
-            const data = await response.json();
+            const transcriptData = await transcriptResponse.json();
 
-            if (!response.ok) {
-                showToast(data.error || 'Failed to process video', 'error');
-                setIsLoading(false);
-                return;
+            if (!transcriptResponse.ok) {
+                throw new Error(transcriptData.error || 'Failed to process video');
             }
 
-            setResult(data);
+            if (!transcriptData.transcript || !transcriptData.metadata) {
+                throw new Error('Failed to extract video information');
+            }
 
             // Then generate summary
             setIsSummarizing(true);
+
+            const videoId = extractVideoId(youtubeUrl);
+            if (!videoId) {
+                throw new Error('Invalid YouTube URL');
+            }
 
             const summaryResponse = await fetch('/api/summarize', {
                 method: 'POST',
@@ -74,61 +92,64 @@ export default function HomePage() {
                 },
                 body: JSON.stringify({
                     url: youtubeUrl,
-                    summaryType
+                    videoId,
+                    summaryType,
+                    metadata: transcriptData.metadata
                 }),
             });
 
             const summaryData = await summaryResponse.json();
 
             if (!summaryResponse.ok) {
-                if (summaryResponse.status === 429) {
-                    setRateLimits(summaryData.limits);
-                    if (summaryData.error.includes('Daily limit exceeded')) {
-                        showToast(
-                            `Daily limit reached (${summaryData.limits.daily}/3). Please upgrade for more summaries.`,
-                            'warning',
-                            8000
-                        );
-                    } else {
-                        showToast(
-                            'Too many requests. Please try again in a minute.',
-                            'warning'
-                        );
-                    }
-
-                    setIsSummarizing(false);
-                    setIsLoading(false);
+                if (summaryResponse.status === 402) {
+                    showToast(
+                        summaryData.details || 'Insufficient credits. Please purchase more credits.',
+                        'warning',
+                        8000
+                    );
+                    router.push('/upgrade');
                     return;
                 }
 
-                showToast(summaryData.error || 'Failed to generate summary', 'error');
-                setIsSummarizing(false);
-                setIsLoading(false);
-                return;
+                throw new Error(summaryData.error || 'Failed to generate summary');
             }
 
+            if (!summaryData.success) {
+                throw new Error(summaryData.error || 'Failed to generate summary');
+            }
+
+            // Show appropriate toast message
             if (summaryData.cached) {
                 showToast('Summary retrieved from cache', 'info', 2000);
             } else {
                 showToast('Summary generated successfully', 'success', 2000);
             }
 
-            router.push(`/summary/${summaryData.id}`);
+            // Navigate to summary page or set summary data
+            if (summaryData.id) {
+                router.push(`/summary/${summaryData.id}`);
+            } else {
+                setSummaryData({
+                    summary: summaryData.summary,
+                    metadata: summaryData.metadata,
+                    timestamp: summaryData.timestamp,
+                    provider: summaryData.provider
+                });
+            }
 
-            setIsSummarizing(false);
-            setIsLoading(false);
-
-        } catch (err: unknown) {
-            // This catch block now only handles unexpected errors
+        } catch (err) {
+            console.error('Error during summary generation:', err);
             const errorMessage = err instanceof Error ? err.message : 'An unexpected error occurred';
-            console.error('Error:', err);
-
-            // Show toast for unexpected errors
-            showToast(errorMessage, 'error');
+            showToast(errorMessage, 'error', 5000);
+        } finally {
             setIsLoading(false);
             setIsSummarizing(false);
         }
     };
+
+    if (!mounted) {
+        return null;
+    }
 
     // If we have summary data, show the results
     if (summaryData) {
@@ -144,21 +165,20 @@ export default function HomePage() {
         );
     }
 
-    // Otherwise, show the search interface
     return (
         <div className="w-full min-h-screen bg-[#f8f9fa] dark:bg-[#202120] flex flex-col items-center transition-colors">
             <div className="w-full max-w-4xl mx-auto px-4 flex flex-col items-center justify-center min-h-[80vh]">
                 {/* Welcome Message */}
                 <div className="text-center mb-12 animate-fade-in">
                     <h1 className="text-4xl md:text-5xl font-bold text-gray-800 dark:text-white mb-4">
-                        Welcome Back!
+                        Welcome{session?.user?.name ? `, ${session.user.name}` : ' Back'}!
                     </h1>
                     <p className="text-gray-600 dark:text-gray-300 text-lg">
                         What would you like to summarize today?
                     </p>
                 </div>
 
-                {/* Search Section - Simplified without AI model dropdown */}
+                {/* Search Section */}
                 <div className={`w-full max-w-2xl transition-all duration-300 ease-in-out ${isFocused ? 'scale-105' : 'scale-100'}`}>
                     <div className="flex gap-3 bg-[#f2f5f6] dark:bg-[#2E2E2E] p-2 rounded-2xl shadow-md hover:shadow-lg transition-shadow duration-300 border border-transparent dark:border-gray-700">
                         {/* Search Input */}
@@ -172,7 +192,7 @@ export default function HomePage() {
                                 onFocus={() => setIsFocused(true)}
                                 onBlur={() => setIsFocused(false)}
                                 onKeyDown={(e) => {
-                                    if (e.key === 'Enter') {
+                                    if (e.key === 'Enter' && !isLoading && !isSummarizing && youtubeUrl) {
                                         handleSubmit();
                                     }
                                 }}
@@ -190,7 +210,7 @@ export default function HomePage() {
                             {isLoading || isSummarizing ? (
                                 <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                             ) : (
-                                <BookDown className="w-5 h-5" />
+                                <BookDown className="w-5 w-5" />
                             )}
                         </button>
                     </div>
