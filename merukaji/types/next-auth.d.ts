@@ -1,26 +1,31 @@
+// types/next-auth.d.ts
 import { DefaultSession } from "next-auth"
 
 declare module "next-auth" {
     interface Session {
         user: {
             id: string;
-            tier: string;
+            credit_balance?: number;
+            free_tier_used?: boolean;
+            last_credit_reset?: string;
         } & DefaultSession["user"]
     }
 
     interface User {
-        tier?: string;
-        stripeCustomerId?: string;
-        stripeSubscriptionId?: string;
-        subscriptionStatus?: string;
-        subscriptionPlanId?: string;
-        subscriptionEndDate?: Date;
+        id: string;
+        email: string;
+        name?: string;
+        credit_balance?: number;
+        free_tier_used?: boolean;
+        last_credit_reset?: string;
     }
 }
 
 declare module "next-auth/jwt" {
     interface JWT {
         id: string;
-        tier: string;
+        credit_balance?: number;
+        free_tier_used?: boolean;
+        last_credit_reset?: string;
     }
 }

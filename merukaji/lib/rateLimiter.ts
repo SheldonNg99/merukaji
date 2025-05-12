@@ -2,8 +2,8 @@
 import { supabaseAdmin } from "./supabase";
 import { logger } from "./logger";
 
-// Tier-based usage quotas for API rate limits (separate from credits)
-const TIER_QUOTAS = {
+// Global usage quotas for API rate limits (separate from credits)
+const USAGE_QUOTAS = {
     // Requests per minute - to prevent abuse
     minuteLimit: 5
 };
@@ -89,7 +89,7 @@ export async function checkCreditAvailability(userId: string, requiredCredits: n
             throw minuteError;
         }
 
-        if ((minuteUsage || 0) >= TIER_QUOTAS.minuteLimit) {
+        if ((minuteUsage || 0) >= USAGE_QUOTAS.minuteLimit) {
             return {
                 allowed: false,
                 reason: 'rate_limit_exceeded',

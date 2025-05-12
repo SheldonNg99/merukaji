@@ -57,7 +57,8 @@ export async function POST(req: NextRequest) {
             packageId,
             name: creditPackage.name,
             credits: creditPackage.credit_amount,
-            price: creditPackage.price
+            price: creditPackage.price,
+            productId: creditPackage.product_id
         });
 
         try {
@@ -76,7 +77,8 @@ export async function POST(req: NextRequest) {
             // Log successful checkout session creation
             logger.info('PayPal checkout session created', {
                 orderId,
-                userId: session.user.id
+                userId: session.user.id,
+                approvalUrl
             });
 
             // Store the pending transaction

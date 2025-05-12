@@ -1,9 +1,11 @@
+// lib/authOptions.ts
 import { AuthOptions } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { createClient } from '@supabase/supabase-js';
 import { compare } from "bcryptjs";
 import { recordFailedAttempt, resetLoginAttempts, checkLoginAttempts } from "./authLockout";
+import { logger } from "./logger";
 
 const supabaseUrl = process.env.SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -19,13 +21,20 @@ async function getUserByEmail(email: string) {
             .single();
 
         if (error) {
-            console.error('Error fetching user:', error);
+            logger.error('Error fetching user by email:', {
+                email,
+                error: error.message,
+                code: error.code
+            });
             return null;
         }
 
         return data;
     } catch (err) {
-        console.error('Exception in getUserByEmail:', err);
+        logger.error('Exception in getUserByEmail:', {
+            email,
+            error: err instanceof Error ? err.message : String(err)
+        });
         return null;
     }
 }
@@ -36,13 +45,15 @@ const testSupabase = async () => {
         const supabase = createClient(supabaseUrl, supabaseServiceKey);
         const { data, error } = await supabase.from('users').select('count');
         if (error) {
-            console.error("Supabase connection test failed:", error);
+            logger.error("Supabase connection test failed:", { error: error.message, code: error.code });
             return false;
         }
-        console.log("Supabase connection test succeeded. User count:", data);
+        logger.info("Supabase connection test succeeded.", { userCount: data });
         return true;
     } catch (e) {
-        console.error("Supabase connection error:", e);
+        logger.error("Supabase connection error:", {
+            error: e instanceof Error ? e.message : String(e)
+        });
         return false;
     }
 };
@@ -51,7 +62,6 @@ const testSupabase = async () => {
 testSupabase();
 
 export const authOptions: AuthOptions = {
-    // Remove the adapter for now to simplify our approach
     providers: [
         GoogleProvider({
             clientId: process.env.GOOGLE_CLIENT_ID!,
@@ -99,11 +109,16 @@ export const authOptions: AuthOptions = {
                         id: user.id.toString(),
                         email: user.email,
                         name: user.name,
-                        tier: user.tier || 'free',
+                        credit_balance: user.credit_balance,
+                        free_tier_used: user.free_tier_used,
+                        last_credit_reset: user.last_credit_reset
                     };
                 } catch (error) {
                     await recordFailedAttempt(credentials.email);
-                    console.error("Authentication error:", error instanceof Error ? error.message : String(error));
+                    logger.error("Authentication error:", {
+                        email: credentials.email,
+                        error: error instanceof Error ? error.message : String(error)
+                    });
                     throw new Error("Authentication error");
                 }
             },
@@ -111,7 +126,10 @@ export const authOptions: AuthOptions = {
     ],
     callbacks: {
         async signIn({ user, account }) {
-            console.log("Sign in callback for user:", user.email, "with account provider:", account?.provider);
+            logger.info("Sign in callback initiated", {
+                email: user.email,
+                provider: account?.provider
+            });
 
             try {
                 if (account?.provider === 'google') {
@@ -120,43 +138,77 @@ export const authOptions: AuthOptions = {
                     // Check if user exists
                     const { data: existingUser, error: userError } = await supabase
                         .from('users')
-                        .select('id, tier')
+                        .select('id, credit_balance, free_tier_used, last_credit_reset')
                         .eq('email', user.email)
                         .single();
 
-                    if (userError && userError.code !== 'PGRST116') { // Not "No rows found"
-                        console.error('Error checking existing user:', userError);
-                    }
+                    if (userError) {
+                        if (userError.code === 'PGRST116') { // "No rows found"
+                            logger.info('Creating new user account for Google auth', { email: user.email });
 
-                    if (!existingUser) {
-                        // Create new user
-                        console.log("Creating new user with email:", user.email);
-                        const { data, error } = await supabase
-                            .from('users')
-                            .insert({
+                            // Create new user with proper defaults
+                            const { data, error } = await supabase
+                                .from('users')
+                                .insert({
+                                    email: user.email,
+                                    name: user.name,
+                                    credit_balance: 0, // Will be set to 3 by credit system
+                                    free_tier_used: false,
+                                    created_at: new Date().toISOString(),
+                                })
+                                .select('id, credit_balance, free_tier_used, last_credit_reset')
+                                .single();
+
+                            if (error) {
+                                logger.error('Error creating user during Google auth:', {
+                                    email: user.email,
+                                    error: error.message,
+                                    code: error.code
+                                });
+                                return false;
+                            }
+
+                            // Set user properties from newly created user
+                            user.id = data.id;
+                            user.credit_balance = data.credit_balance;
+                            user.free_tier_used = data.free_tier_used;
+                            user.last_credit_reset = data.last_credit_reset;
+
+                            logger.info('New user created successfully via Google auth', {
+                                userId: user.id,
+                                creditBalance: data.credit_balance
+                            });
+                        } else {
+                            // Some other database error occurred
+                            logger.error('Error checking existing user during Google auth:', {
                                 email: user.email,
-                                name: user.name,
-                                tier: 'free',
-                                created_at: new Date().toISOString(),
-                            })
-                            .select('id, tier')
-                            .single();
+                                error: userError.message,
+                                code: userError.code
+                            });
 
-                        if (error) {
-                            console.error('Error creating user:', error);
-                            return false;
+                            // Still try to continue the sign-in process
+                            return true;
                         }
-
-                        user.id = data.id;
-                        user.tier = data.tier;
-                    } else {
+                    } else if (existingUser) {
+                        // User exists, update user object with db data
                         user.id = existingUser.id;
-                        user.tier = existingUser.tier;
+                        user.credit_balance = existingUser.credit_balance;
+                        user.free_tier_used = existingUser.free_tier_used;
+                        user.last_credit_reset = existingUser.last_credit_reset;
+
+                        logger.info('Existing user retrieved for Google auth', {
+                            userId: user.id,
+                            creditBalance: existingUser.credit_balance,
+                            freeTierUsed: existingUser.free_tier_used
+                        });
                     }
                 }
                 return true;
             } catch (error) {
-                console.error("SignIn callback error:", error);
+                logger.error("SignIn callback error:", {
+                    email: user.email,
+                    error: error instanceof Error ? error.message : String(error)
+                });
                 return true; // Still allow sign in even if there's an error
             }
         },
@@ -165,16 +217,30 @@ export const authOptions: AuthOptions = {
                 token.id = user.id;
                 token.email = user.email;
                 token.name = user.name;
-                token.tier = user.tier || 'free';
+                token.credit_balance = user.credit_balance;
+                token.free_tier_used = user.free_tier_used;
+                token.last_credit_reset = user.last_credit_reset;
+
+                logger.debug("JWT callback: Token updated with user data", {
+                    userId: user.id,
+                    creditBalance: user.credit_balance
+                });
             }
             return token;
         },
         async session({ session, token }) {
             if (session.user) {
                 session.user.id = token.id as string;
-                session.user.tier = (token.tier as string) || 'free';
                 session.user.email = token.email as string;
                 session.user.name = token.name as string;
+                session.user.credit_balance = token.credit_balance as number;
+                session.user.free_tier_used = token.free_tier_used as boolean;
+                session.user.last_credit_reset = token.last_credit_reset as string;
+
+                logger.debug("Session callback: Session updated with token data", {
+                    userId: session.user.id,
+                    creditBalance: session.user.credit_balance
+                });
             }
             return session;
         },
@@ -184,7 +250,7 @@ export const authOptions: AuthOptions = {
         error: '/login',
     },
     session: {
-        strategy: "jwt", // Use JWT strategy - simpler and more reliable for our needs
+        strategy: "jwt",
         maxAge: 30 * 24 * 60 * 60,
     },
     secret: process.env.NEXTAUTH_SECRET,

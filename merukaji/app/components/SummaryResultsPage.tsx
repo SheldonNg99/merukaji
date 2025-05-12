@@ -1,4 +1,3 @@
-// app/components/SummaryResultsPage.tsx
 import React, { useState, useEffect } from 'react';
 import { Copy, Clock, Bookmark, ExternalLink, Plus, Lock } from 'lucide-react';
 import Image from 'next/image';
@@ -6,7 +5,9 @@ import { SummaryResultsPageProps } from '@/types/summary';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { useToast } from '@/app/components/contexts/ToastContext';
-import PdfViewer from './PdfViewer'; // Import our new PdfViewer component
+import PdfViewer from './PdfViewer';
+
+const MIN_CREDITS_FOR_COPY = 2; // Set minimum credits needed for copy functionality
 
 const SummaryResultsPage = ({ summary, metadata, timestamp, provider }: SummaryResultsPageProps) => {
     const [, setCopied] = useState(false);
@@ -48,8 +49,8 @@ const SummaryResultsPage = ({ summary, metadata, timestamp, provider }: SummaryR
         };
     }, []);
 
-    // Check if user can copy (Pro and Max tiers only)
-    const canCopy = session?.user?.tier && ['pro', 'max'].includes(session.user.tier.toLowerCase());
+    // Check if user can copy based on credit balance
+    const canCopy = session?.user?.credit_balance && session.user.credit_balance >= MIN_CREDITS_FOR_COPY;
 
     // Format the timestamp
     const formatDate = (timestamp: string | null | undefined): string => {
@@ -94,59 +95,71 @@ const SummaryResultsPage = ({ summary, metadata, timestamp, provider }: SummaryR
         if (!text) return [];
 
         // Split into sections based on **Section headers**
-        const sectionRegex = /(?:\*\*(.+?)\*\*)\s*((?:.|\n)*?)(?=\n\s*\*\*|$)/g;
+        const sectionRegex = /(?:\*\*(.+?)\*\*)\s*((?:.|\n)*?)(?=(?:\n\s*\*\*|$))/g;
         const matches = Array.from(text.matchAll(sectionRegex));
 
-        return matches.map(([, header, body], index) => {
-            const paragraphs = body.trim().split(/\n\n+/);
+        if (matches.length === 0) {
+            // No sections found, treat as a single section
+            return [formatParagraphs(text, 0)];
+        }
 
+        return matches.map(([, header, body], index) => {
             return (
                 <div key={index} className="mb-6">
                     <h3 className="text-base font-medium text-gray-900 dark:text-white mb-3">
                         <span className="text-orange-500 mr-2">•</span>{header}
                     </h3>
-
-                    {paragraphs.map((paragraph, pIndex) => {
-                        const lines = paragraph.split('\n');
-
-                        return (
-                            <div key={`p-${pIndex}`} className="mb-4">
-                                {lines.map((line, lineIndex) => {
-                                    const bulletMatch = line.match(/^\s*([-•*]|\d+\.)\s*(.+)$/);
-
-                                    if (bulletMatch) {
-                                        return (
-                                            <div key={`line-${lineIndex}`} className="flex items-start mb-2 ml-2">
-                                                <div className="flex-shrink-0 h-2 w-2 rounded-full bg-orange-400 mt-2 mr-2"></div>
-                                                <p className="text-gray-800 dark:text-gray-200">
-                                                    {bulletMatch[2]}
-                                                </p>
-                                            </div>
-                                        );
-                                    }
-
-                                    return (
-                                        <p key={`line-${lineIndex}`} className="text-gray-800 dark:text-gray-200 mb-2">
-                                            {line}
-                                        </p>
-                                    );
-                                })}
-                            </div>
-                        );
-                    })}
+                    {formatParagraphs(body.trim(), index)}
                 </div>
             );
         });
     };
 
+    // Helper function to format paragraphs and bullet points
+    const formatParagraphs = (text: string, sectionIndex: number): React.ReactNode => {
+        const paragraphs = text.split(/\n\n+/);
+
+        return (
+            <>
+                {paragraphs.map((paragraph, pIndex) => {
+                    const lines = paragraph.split('\n');
+
+                    return (
+                        <div key={`p-${sectionIndex}-${pIndex}`} className="mb-4">
+                            {lines.map((line, lineIndex) => {
+                                const bulletMatch = line.match(/^\s*([-•*]|\d+\.)\s*(.+)$/);
+
+                                if (bulletMatch) {
+                                    return (
+                                        <div key={`line-${sectionIndex}-${pIndex}-${lineIndex}`} className="flex items-start mb-2 ml-2">
+                                            <div className="flex-shrink-0 h-2 w-2 rounded-full bg-orange-400 mt-2 mr-2"></div>
+                                            <p className="text-gray-800 dark:text-gray-200">
+                                                {bulletMatch[2]}
+                                            </p>
+                                        </div>
+                                    );
+                                }
+
+                                return (
+                                    <p key={`line-${sectionIndex}-${pIndex}-${lineIndex}`} className="text-gray-800 dark:text-gray-200 mb-2">
+                                        {line}
+                                    </p>
+                                );
+                            })}
+                        </div>
+                    );
+                })}
+            </>
+        );
+    };
 
     const highlights = extractHighlights(summary);
     const formattedSummary = formatSummaryForDisplay(summary);
 
     const handleCopy = () => {
-        // Free users see upgrade prompt instead of copying
+        // Users with insufficient credits see upgrade prompt instead of copying
         if (!canCopy) {
-            showToast('Upgrade to Pro or Max to copy summaries', 'info', 5000);
+            showToast(`You need at least ${MIN_CREDITS_FOR_COPY} credits to copy summaries. Please purchase more credits.`, 'info', 5000);
             return;
         }
 
@@ -235,6 +248,18 @@ const SummaryResultsPage = ({ summary, metadata, timestamp, provider }: SummaryR
                             </div>
                         </div>
 
+                        {/* Credit Status Card */}
+                        {session?.user?.credit_balance !== undefined && (
+                            <div className="bg-white dark:bg-[#2E2E2E] rounded-xl border border-gray-200 dark:border-gray-700 p-4 mb-4">
+                                <div className="flex justify-between items-center">
+                                    <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">Credit Balance</h3>
+                                    <span className="px-2.5 py-1 bg-orange-100 dark:bg-orange-900/20 text-orange-700 dark:text-orange-300 rounded-full text-sm font-medium">
+                                        {session.user.credit_balance} Credits
+                                    </span>
+                                </div>
+                            </div>
+                        )}
+
                         {/* Key Points Card - Scrollable with max-height */}
                         <div className="bg-white dark:bg-[#2E2E2E] rounded-xl border border-gray-200 dark:border-gray-700 flex flex-col mb-4 md:mb-0">
                             <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700">
@@ -296,7 +321,7 @@ const SummaryResultsPage = ({ summary, metadata, timestamp, provider }: SummaryR
                                     <button
                                         onClick={handleCopy}
                                         className="p-1.5 rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-[#383838]"
-                                        title={canCopy ? "Copy to clipboard" : "Premium feature"}
+                                        title={canCopy ? "Copy to clipboard" : `Need ${MIN_CREDITS_FOR_COPY} credits to copy`}
                                     >
                                         {canCopy ? (
                                             <Copy className="h-4 w-4" />

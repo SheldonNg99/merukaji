@@ -1,3 +1,4 @@
+// app/components/SideNav.tsx
 import { useState, useEffect, useRef } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { AlignLeft, AlignRight, ChevronDown, Settings, Layout, LogOut, Coins } from 'lucide-react';
@@ -257,7 +258,7 @@ export default function SideNav({ isDesktopSidebarOpen, onDesktopSidebarChange }
                                         className="px-4 py-3 hover:bg-[#f8faff] dark:hover:bg-[#383838] cursor-pointer transition-colors flex items-center gap-3 text-sm text-gray-700 dark:text-gray-300"
                                     >
                                         <Layout className="h-4 w-4 text-gray-400 dark:text-gray-500" />
-                                        <span>View All Plans</span>
+                                        <span>Buy Credits</span>
                                     </li>
                                     {session ? (
                                         <li

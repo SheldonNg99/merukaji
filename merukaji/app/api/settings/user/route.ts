@@ -1,3 +1,4 @@
+// app/api/settings/user/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/authOptions';
@@ -18,7 +19,7 @@ export async function GET(req: NextRequest) {
     try {
         const { data: userWithBasicInfo, error: basicError } = await supabaseAdmin
             .from('users')
-            .select('name, email, tier')
+            .select('name, email, credit_balance, free_tier_used')
             .eq('id', session.user.id)
             .single();
 
@@ -30,7 +31,8 @@ export async function GET(req: NextRequest) {
         const user = {
             name: userWithBasicInfo.name || '',
             email: userWithBasicInfo.email || '',
-            tier: userWithBasicInfo.tier || 'free',
+            credit_balance: userWithBasicInfo.credit_balance || 0,
+            free_tier_used: userWithBasicInfo.free_tier_used || false,
             bio: ''
         };
 

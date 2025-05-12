@@ -1,3 +1,4 @@
+// app/components/SettingsPage.tsx
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
@@ -146,7 +147,7 @@ export default function SettingsPage() {
                                     }`}
                             >
                                 <CreditCard className="h-4 w-4" />
-                                <span>Billing</span>
+                                <span>Credits</span>
                             </button>
                             <button
                                 onClick={() => setActiveTab('appearance')}
