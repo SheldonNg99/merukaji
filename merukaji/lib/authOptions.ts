@@ -146,15 +146,19 @@ export const authOptions: AuthOptions = {
                         if (userError.code === 'PGRST116') { // "No rows found"
                             logger.info('Creating new user account for Google auth', { email: user.email });
 
-                            // Create new user with proper defaults
+                            const now = new Date().toISOString();
+                            const INITIAL_FREE_CREDITS = 3;
+
                             const { data, error } = await supabase
                                 .from('users')
                                 .insert({
                                     email: user.email,
                                     name: user.name,
-                                    credit_balance: 0, // Will be set to 3 by credit system
-                                    free_tier_used: false,
-                                    created_at: new Date().toISOString(),
+                                    credit_balance: INITIAL_FREE_CREDITS,
+                                    free_tier_used: true,
+                                    created_at: now,
+                                    last_credit_reset: now,
+                                    updated_at: now
                                 })
                                 .select('id, credit_balance, free_tier_used, last_credit_reset')
                                 .single();
@@ -168,13 +172,31 @@ export const authOptions: AuthOptions = {
                                 return false;
                             }
 
+                            // Record the initial credit grant (same as email registration)
+                            const { error: creditError } = await supabase
+                                .from('credits')
+                                .insert({
+                                    user_id: data.id,
+                                    amount: INITIAL_FREE_CREDITS,
+                                    description: `Welcome! ${INITIAL_FREE_CREDITS} free credits`,
+                                    created_at: now
+                                });
+
+                            if (creditError) {
+                                logger.error('Error recording initial credits for Google user', {
+                                    error: creditError.message,
+                                    userId: data.id
+                                });
+                                // Don't fail sign-in, user was created successfully
+                            }
+
                             // Set user properties from newly created user
                             user.id = data.id;
                             user.credit_balance = data.credit_balance;
                             user.free_tier_used = data.free_tier_used;
                             user.last_credit_reset = data.last_credit_reset;
 
-                            logger.info('New user created successfully via Google auth', {
+                            logger.info('New Google user created with initial credits', {
                                 userId: user.id,
                                 creditBalance: data.credit_balance
                             });
@@ -185,8 +207,6 @@ export const authOptions: AuthOptions = {
                                 error: userError.message,
                                 code: userError.code
                             });
-
-                            // Still try to continue the sign-in process
                             return true;
                         }
                     } else if (existingUser) {
