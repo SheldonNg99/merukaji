@@ -27,20 +27,29 @@ export async function POST(req: NextRequest) {
 
         const data = await response.json();
 
+        // Handle specific error cases
         if (!response.ok || data.error) {
-            logger.error('Worker returned error', {
-                status: response.status,
-                error: data.error,
-                videoId
-            });
+            // Log different types of errors differently
+            if (data.error?.includes('LOGIN_REQUIRED') || data.playabilityStatus === 'LOGIN_REQUIRED') {
+                logger.warn('Login required for video', { videoId });
+            } else {
+                logger.error('Worker returned error', {
+                    status: response.status,
+                    error: data.error,
+                    videoId
+                });
+            }
 
             return NextResponse.json(
-                { error: data.error || 'Failed to fetch transcript' },
+                {
+                    error: data.error || 'Failed to fetch transcript',
+                    playabilityStatus: data.playabilityStatus
+                },
                 { status: response.status || 500 }
             );
         }
 
-        // Convert the Innertube API response to match existing format
+        // Convert the response to match existing format
         const formattedResponse = {
             success: true,
             playerResponse: {

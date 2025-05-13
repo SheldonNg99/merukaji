@@ -15,6 +15,7 @@ export default function ClientTranscriptFetcher({
     onError
 }: TranscriptFetcherProps) {
     const [isLoading, setIsLoading] = useState(false);
+    const [hasAttempted, setHasAttempted] = useState(false);
 
     // HTML entities mapping
     const htmlEntities: HtmlEntities = {
@@ -26,7 +27,6 @@ export default function ClientTranscriptFetcher({
         '&nbsp;': ' '
     };
 
-    // Helper function to decode HTML entities
     const decodeHtmlEntities = (text: string): string => {
         return text.replace(/&[^;]+;/g, (entity: string) => {
             return htmlEntities[entity] || entity;
@@ -35,9 +35,11 @@ export default function ClientTranscriptFetcher({
 
     useEffect(() => {
         const fetchTranscript = async () => {
-            if (!videoId || isLoading) return;
+            if (!videoId || isLoading || hasAttempted) return;
 
             setIsLoading(true);
+            setHasAttempted(true);
+
             try {
                 const response = await fetch('/api/youtube/proxy', {
                     method: 'POST',
@@ -49,7 +51,19 @@ export default function ClientTranscriptFetcher({
 
                 const data = await response.json();
 
+                // Handle specific error cases
                 if (!response.ok) {
+                    // Special handling for login required
+                    if (data.error?.includes('LOGIN_REQUIRED') || data.error?.includes('requires login')) {
+                        console.warn('Video requires login:', videoId);
+                        throw new Error('This video requires login to access. Please try a public video.');
+                    }
+
+                    // Special handling for rate limiting
+                    if (response.status === 429) {
+                        throw new Error('YouTube is rate limiting requests. Please try again in a few minutes.');
+                    }
+
                     throw new Error(data.error || `Server error: ${response.status}`);
                 }
 
@@ -59,13 +73,13 @@ export default function ClientTranscriptFetcher({
 
                 const { playerResponse, transcript: transcriptXml } = data;
 
-                // Extract video metadata from the response
+                // Extract video metadata
                 const metadata: VideoMetadata = {
                     videoId,
                     title: playerResponse.videoDetails?.title || 'Untitled Video',
                     thumbnailUrl: `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`,
                     channelTitle: playerResponse.videoDetails?.author || '',
-                    publishedAt: '', // Innertube API doesn't provide this directly
+                    publishedAt: '',
                     duration: playerResponse.videoDetails?.lengthSeconds || ''
                 };
 
@@ -92,7 +106,14 @@ export default function ClientTranscriptFetcher({
 
             } catch (error) {
                 const errorMessage = error instanceof Error ? error.message : 'Failed to fetch transcript';
-                console.error('Transcript fetch error:', error);
+
+                // Only log non-login errors as actual errors
+                if (!errorMessage.includes('login')) {
+                    console.error('Transcript fetch error:', error);
+                } else {
+                    console.warn('Login required for video:', videoId);
+                }
+
                 onError(errorMessage);
             } finally {
                 setIsLoading(false);
@@ -100,7 +121,7 @@ export default function ClientTranscriptFetcher({
         };
 
         fetchTranscript();
-    }, [videoId, onTranscriptFetched, onError]);
+    }, [videoId, onTranscriptFetched, onError, hasAttempted]);
 
     return null;
 }
