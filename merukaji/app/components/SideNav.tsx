@@ -1,4 +1,3 @@
-
 // app/components/SideNav.tsx
 'use client';
 
@@ -108,12 +107,6 @@ export default function SideNav({ isDesktopSidebarOpen, onDesktopSidebarChange }
         router.push(path);
     };
 
-    // Add scroll with fade effect
-    const sidebarScrollStyle = {
-        maskImage: 'linear-gradient(to bottom, transparent, black 10px, black 90%, transparent)',
-        WebkitMaskImage: 'linear-gradient(to bottom, transparent, black 10px, black 90%, transparent)'
-    };
-
     return (
         <>
             {/* Mobile Toggle Button - Adjusted positioning and padding */}
@@ -160,7 +153,7 @@ export default function SideNav({ isDesktopSidebarOpen, onDesktopSidebarChange }
                             className="hidden lg:flex p-2 text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors"
                             aria-label={isDesktopSidebarOpen ? "Collapse sidebar" : "Expand sidebar"}
                         >
-                            <AlignRight className={`h-6 w-6 transform transition-transform duration-300 ${isDesktopSidebarOpen ? <AlignLeft className="h-6 w-6 transform transition-transform duration-300" /> : ''}`} />
+                            <AlignRight className={`h-6 w-6 transform transition-transform duration-300 ${isDesktopSidebarOpen ? 'rotate-180' : ''}`} />
                         </button>
 
                         {/* Make the title a link to the home page */}
@@ -170,16 +163,16 @@ export default function SideNav({ isDesktopSidebarOpen, onDesktopSidebarChange }
                     </div>
                 </div>
 
-                {/* History Section with minimalist styling */}
-                <div className="flex-1 overflow-y-auto" style={sidebarScrollStyle}>
+                {/* History Section with scrollbar */}
+                <div className="flex-1 overflow-hidden">
                     <div className={`pt-4 ${!isDesktopSidebarOpen ? 'lg:px-2' : 'px-4'}`}>
                         <h2 className={`flex text-sm font-medium text-gray-800 dark:text-white mb-2 px-2
                             ${!isDesktopSidebarOpen ? 'lg:hidden' : ''}`}>
                             Recents
                         </h2>
 
-                        {/* History List */}
-                        <div className={`${!isDesktopSidebarOpen ? 'lg:hidden' : ''}`}>
+                        {/* History List with scrollbar */}
+                        <div className={`${!isDesktopSidebarOpen ? 'lg:hidden' : ''} h-[calc(100vh-240px)] overflow-y-auto custom-scrollbar`}>
                             {historyItems.map((item) => {
                                 const isActive = pathname === `/summary/${item.id}`;
                                 return (
@@ -289,6 +282,34 @@ export default function SideNav({ isDesktopSidebarOpen, onDesktopSidebarChange }
                     </div>
                 </div>
             </div>
+
+            {/* Custom scrollbar styles */}
+            <style jsx>{`
+                .custom-scrollbar::-webkit-scrollbar {
+                    width: 6px;
+                }
+                
+                .custom-scrollbar::-webkit-scrollbar-track {
+                    background: transparent;
+                }
+                
+                .custom-scrollbar::-webkit-scrollbar-thumb {
+                    background: #e5e7eb;
+                    border-radius: 3px;
+                }
+                
+                .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+                    background: #d1d5db;
+                }
+                
+                .dark .custom-scrollbar::-webkit-scrollbar-thumb {
+                    background: #4b5563;
+                }
+                
+                .dark .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+                    background: #6b7280;
+                }
+            `}</style>
         </>
     );
 }

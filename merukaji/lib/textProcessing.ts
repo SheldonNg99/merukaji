@@ -72,12 +72,29 @@ function mergeTooShortParagraphs(paragraphs: string[], minLength: number = 100):
 /**
  * Clean and format a summary for display
  */
+// lib/textProcessing.ts
+/**
+ * Clean and format a summary for display
+ */
 export function formatSummary(rawSummary: string): string {
     // Remove potential AI artifacts like "Here's a summary:" prefixes
-    const cleanSummary = rawSummary
+    let cleanSummary = rawSummary
         .replace(/^(here'?s? (is |)a summary:?|summary:)/i, '')
         .replace(/^(here are the key points:?|key points:)/i, '')
         .trim();
+
+    // Convert HTML line breaks to regular line breaks
+    cleanSummary = cleanSummary
+        .replace(/<br\s*\/?>/gi, '\n')
+        .replace(/<\/br>/gi, '\n');
+
+    // Convert any HTML entities
+    cleanSummary = cleanSummary
+        .replace(/&quot;/g, '"')
+        .replace(/&amp;/g, '&')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&#39;/g, "'");
 
     // Ensure proper spacing between sections
     return cleanSummary

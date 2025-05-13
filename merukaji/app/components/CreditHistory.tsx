@@ -7,7 +7,6 @@ import { useRouter } from 'next/navigation';
 import { useToast } from '@/app/components/contexts/ToastContext';
 import { CreditTransaction, PurchaseTransaction } from '@/types/paypal';
 
-
 export default function CreditHistory() {
     const [loading, setLoading] = useState(true);
     const [balance, setBalance] = useState(0);
@@ -121,7 +120,7 @@ export default function CreditHistory() {
                     </div>
                 </div>
 
-                {/* Recent Transactions */}
+                {/* Recent Transactions with scrollbar */}
                 <div className="border-t border-gray-200 dark:border-gray-700">
                     <div className="px-6 py-4">
                         <h3 className="font-medium text-gray-900 dark:text-white mb-4">Recent Transactions</h3>
@@ -131,7 +130,7 @@ export default function CreditHistory() {
                                 No transactions yet
                             </p>
                         ) : (
-                            <div className="space-y-4">
+                            <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
                                 {/* Credit usage transactions */}
                                 {credits.map((credit, index) => (
                                     <div
@@ -209,6 +208,33 @@ export default function CreditHistory() {
                     </div>
                 </div>
             </div>
+
+            <style jsx>{`
+                .custom-scrollbar::-webkit-scrollbar {
+                    width: 6px;
+                }
+                
+                .custom-scrollbar::-webkit-scrollbar-track {
+                    background: transparent;
+                }
+                
+                .custom-scrollbar::-webkit-scrollbar-thumb {
+                    background: #e5e7eb;
+                    border-radius: 3px;
+                }
+                
+                .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+                    background: #d1d5db;
+                }
+                
+                .dark .custom-scrollbar::-webkit-scrollbar-thumb {
+                    background: #4b5563;
+                }
+                
+                .dark .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+                    background: #6b7280;
+                }
+            `}</style>
         </div>
     );
 }

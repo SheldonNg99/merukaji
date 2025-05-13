@@ -25,6 +25,12 @@ export async function POST(req: NextRequest) {
         // Get transcript from RapidAPI
         const { transcript, metadata } = await getTranscriptFromRapidAPI(videoId);
 
+        logger.info('Transcript fetched successfully', {
+            videoId,
+            transcriptLength: transcript.length,
+            metadataTitle: metadata.title
+        });
+
         return NextResponse.json({
             success: true,
             metadata,

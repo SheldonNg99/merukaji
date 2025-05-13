@@ -117,7 +117,8 @@ const SummaryResultsPage = ({ summary, metadata, timestamp, provider }: SummaryR
 
     // Helper function to format paragraphs and bullet points
     const formatParagraphs = (text: string, sectionIndex: number): React.ReactNode => {
-        const paragraphs = text.split(/\n\n+/);
+        const cleanText = text.replace(/<br\s*\/?>/gi, '\n');
+        const paragraphs = cleanText.split(/\n\n+/);
 
         return (
             <>

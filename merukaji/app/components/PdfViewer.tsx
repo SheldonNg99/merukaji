@@ -27,7 +27,7 @@ export default function PdfViewer({ summary, metadata, timestamp, provider }: Pd
                 setLoading(true);
 
                 // Generate PDF without watermark
-                const pdfBlob = generateSummaryPDF(summary, metadata, timestamp, provider, false);
+                const pdfBlob = generateSummaryPDF(summary, metadata, timestamp);
 
                 // Create object URL for preview
                 const url = URL.createObjectURL(pdfBlob);
@@ -55,7 +55,7 @@ export default function PdfViewer({ summary, metadata, timestamp, provider }: Pd
             }
 
             // Generate PDF for download (no watermark)
-            const pdfBlob = generateSummaryPDF(summary, metadata, timestamp, provider, false);
+            const pdfBlob = generateSummaryPDF(summary, metadata, timestamp);
 
             // Create temporary download link
             const url = URL.createObjectURL(pdfBlob);
