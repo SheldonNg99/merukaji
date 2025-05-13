@@ -4,6 +4,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/authOptions';
 import { extractVideoId } from '@/lib/youtube';
 import { logger } from '@/lib/logger';
+import { getTranscriptFromRapidAPI } from '@/lib/rapidapi-youtube';
 
 export async function POST(req: NextRequest) {
     const session = await getServerSession(authOptions);
@@ -19,36 +20,19 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: 'Invalid YouTube URL' }, { status: 400 });
         }
 
-        // Use the proxy endpoint internally
-        const proxyResponse = await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/youtube/proxy`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ videoId })
-        });
+        logger.info('Fetching transcript', { videoId, userId: session.user.id });
 
-        const data = await proxyResponse.json();
+        // Get transcript from RapidAPI
+        const { transcript, metadata } = await getTranscriptFromRapidAPI(videoId);
 
-        if (!proxyResponse.ok) {
-            throw new Error(data.error || 'Failed to fetch transcript');
-        }
-
-        // Format response to match expected structure
         return NextResponse.json({
             success: true,
-            metadata: {
-                videoId,
-                title: data.playerResponse?.videoDetails?.title || 'Untitled Video',
-                thumbnailUrl: `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`,
-                channelTitle: data.playerResponse?.videoDetails?.author || '',
-                duration: data.playerResponse?.videoDetails?.lengthSeconds || ''
-            },
-            transcript: data.transcript
+            metadata,
+            transcript
         });
 
     } catch (error) {
-        logger.error('Transcript route error', {
+        logger.error('Transcript fetch error', {
             error: error instanceof Error ? error.message : String(error)
         });
 

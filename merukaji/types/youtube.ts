@@ -40,7 +40,7 @@ export interface YouTubePlayerResponse {
 }
 
 export interface TranscriptFetcherProps {
-    videoId: string;
+    videoId: string | null;
     onTranscriptFetched: (transcript: TranscriptSegment[], metadata: VideoMetadata) => void;
     onError: (error: string) => void;
 }

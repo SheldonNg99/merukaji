@@ -278,9 +278,46 @@ export class YouTubeProcessor {
 export const youtubeProcessor = new YouTubeProcessor();
 
 // Export standalone functions for flexibility
-export const extractVideoId = (url: string): string | null => {
-    return new YouTubeProcessor().extractVideoId(url);
-};
+// lib/youtube.ts
+export function extractVideoId(url: string): string | null {
+    if (!url) return null;
+
+    // Trim whitespace
+    url = url.trim();
+
+    // Handle different YouTube URL formats
+    const patterns = [
+        // Standard: https://www.youtube.com/watch?v=VIDEO_ID
+        /(?:youtube\.com\/watch\?v=)([a-zA-Z0-9_-]{11})/,
+        // Short: https://youtu.be/VIDEO_ID
+        /(?:youtu\.be\/)([a-zA-Z0-9_-]{11})/,
+        // Embedded: https://www.youtube.com/embed/VIDEO_ID
+        /(?:youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/,
+        // With timestamp: https://www.youtube.com/watch?v=VIDEO_ID&t=123s
+        /(?:youtube\.com\/watch\?.*v=)([a-zA-Z0-9_-]{11})/,
+        // Mobile: https://m.youtube.com/watch?v=VIDEO_ID
+        /(?:m\.youtube\.com\/watch\?v=)([a-zA-Z0-9_-]{11})/,
+        // Shorts: https://www.youtube.com/shorts/VIDEO_ID
+        /(?:youtube\.com\/shorts\/)([a-zA-Z0-9_-]{11})/
+    ];
+
+    for (const pattern of patterns) {
+        const match = url.match(pattern);
+        if (match && match[1]) {
+            logger.info('Extracted video ID', { url, videoId: match[1] });
+            return match[1];
+        }
+    }
+
+    // Check if it's already a video ID (11 characters)
+    if (/^[a-zA-Z0-9_-]{11}$/.test(url)) {
+        logger.info('Input is already a video ID', { videoId: url });
+        return url;
+    }
+
+    logger.warn('Could not extract video ID', { url });
+    return null;
+}
 
 export const getVideoTranscript = async (videoIdOrUrl: string): Promise<TranscriptSegment[]> => {
     const processor = new YouTubeProcessor();
