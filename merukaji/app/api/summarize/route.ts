@@ -159,63 +159,76 @@ export async function POST(req: NextRequest) {
                 actualProvider: summaryResult.provider
             });
 
-            // Start database transaction
-            const { data: transaction, error: transactionError } = await supabaseAdmin
-                .rpc('handle_summary_creation', {
-                    p_user_id: userId,
-                    p_video_id: providedMetadata.videoId,
-                    p_summary_type: summaryType,
-                    p_summary: formattedSummary,
-                    p_metadata: providedMetadata,
-                    p_provider: summaryResult.provider,
-                    p_credit_cost: creditCost,
-                    p_credits_description: `Used: ${creditCost} credit${creditCost > 1 ? 's' : ''} for ${summaryType} summary`
-                });
-
-            if (transactionError) {
-                logger.error('Transaction failed', {
-                    requestId,
-                    error: transactionError.message
-                });
-                throw new Error('Failed to process summary');
-            }
-
-            logger.info('Database transaction completed', {
-                requestId,
-                summaryId: transaction.summary_id
-            });
-
-            // Get updated balance
-            const { data: userData } = await supabaseAdmin
-                .from('users')
-                .select('credit_balance')
-                .eq('id', userId)
-                .single();
-
-            const newBalance = userData?.credit_balance || 0;
-
-            // Record usage
-            await supabaseAdmin
-                .from('usage_stats')
+            // Create summary record
+            const { data: newSummary, error: insertError } = await supabaseAdmin
+                .from('summaries')
                 .insert({
                     user_id: userId,
                     video_id: providedMetadata.videoId,
-                    action: 'summarize',
-                    timestamp: new Date().toISOString(),
-                    reset: false
+                    summary_type: summaryType,
+                    summary: formattedSummary,
+                    metadata: providedMetadata,
+                    provider: summaryResult.provider,
+                    created_at: new Date().toISOString()
+                })
+                .select('id')
+                .single();
+
+            if (insertError || !newSummary) {
+                logger.error('Failed to save summary', {
+                    requestId,
+                    error: insertError?.message || 'No data returned'
                 });
+                throw new Error('Failed to save summary');
+            }
+
+            // Deduct credits
+            const { error: creditError } = await supabaseAdmin
+                .from('credits')
+                .insert({
+                    user_id: userId,
+                    amount: -creditCost,
+                    description: `Used: ${creditCost} credit${creditCost > 1 ? 's' : ''} for ${summaryType} summary`,
+                    created_at: new Date().toISOString()
+                });
+
+            if (creditError) {
+                logger.error('Failed to deduct credits', {
+                    requestId,
+                    error: creditError.message
+                });
+                // Don't throw here, summary was created successfully
+            }
+
+            // Update user balance
+            const { error: balanceError } = await supabaseAdmin
+                .from('users')
+                .update({
+                    credit_balance: creditCheck.remaining - creditCost,
+                    updated_at: new Date().toISOString()
+                })
+                .eq('id', userId);
+
+            if (balanceError) {
+                logger.error('Failed to update user balance', {
+                    requestId,
+                    error: balanceError.message
+                });
+            }
+
+            const newBalance = creditCheck.remaining - creditCost;
 
             logger.info('Summary process completed successfully', {
                 requestId,
                 videoId: providedMetadata.videoId,
-                summaryId: transaction.summary_id,
+                summaryId: newSummary.id,
                 creditsUsed: creditCost,
                 remainingCredits: newBalance
             });
 
             return NextResponse.json({
                 success: true,
-                id: transaction.summary_id,
+                id: newSummary.id,  // This is the critical fix
                 summary: formattedSummary,
                 metadata: providedMetadata,
                 provider: summaryResult.provider,
