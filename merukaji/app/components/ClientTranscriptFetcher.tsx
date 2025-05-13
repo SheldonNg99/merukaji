@@ -15,8 +15,6 @@ export default function ClientTranscriptFetcher({
     onError
 }: TranscriptFetcherProps) {
     const [isLoading, setIsLoading] = useState(false);
-    const [retryCount, setRetryCount] = useState(0);
-    const MAX_RETRIES = 3;
 
     // HTML entities mapping
     const htmlEntities: HtmlEntities = {
@@ -49,11 +47,6 @@ export default function ClientTranscriptFetcher({
                     body: JSON.stringify({ videoId })
                 });
 
-                const contentType = response.headers.get('content-type');
-                if (!contentType || !contentType.includes('application/json')) {
-                    throw new Error('Invalid response type from server');
-                }
-
                 const data = await response.json();
 
                 if (!response.ok) {
@@ -66,13 +59,13 @@ export default function ClientTranscriptFetcher({
 
                 const { playerResponse, transcript: transcriptXml } = data;
 
-                // Extract video metadata
+                // Extract video metadata from the response
                 const metadata: VideoMetadata = {
                     videoId,
                     title: playerResponse.videoDetails?.title || 'Untitled Video',
                     thumbnailUrl: `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`,
                     channelTitle: playerResponse.videoDetails?.author || '',
-                    publishedAt: playerResponse.microformat?.playerMicroformatRenderer?.publishDate || '',
+                    publishedAt: '', // Innertube API doesn't provide this directly
                     duration: playerResponse.videoDetails?.lengthSeconds || ''
                 };
 
@@ -95,34 +88,19 @@ export default function ClientTranscriptFetcher({
                     throw new Error('No transcript segments found');
                 }
 
-                // Reset retry count on success
-                setRetryCount(0);
                 onTranscriptFetched(segments, metadata);
 
             } catch (error) {
                 const errorMessage = error instanceof Error ? error.message : 'Failed to fetch transcript';
-
-                // Retry logic
-                if (retryCount < MAX_RETRIES) {
-                    console.log(`Retrying... (attempt ${retryCount + 1}/${MAX_RETRIES})`);
-                    setRetryCount(prev => prev + 1);
-                    setTimeout(() => {
-                        setIsLoading(false); // Reset loading to allow retry
-                    }, 2000 * (retryCount + 1)); // Exponential backoff
-                    return;
-                }
-
                 console.error('Transcript fetch error:', error);
                 onError(errorMessage);
             } finally {
-                if (retryCount >= MAX_RETRIES) {
-                    setIsLoading(false);
-                }
+                setIsLoading(false);
             }
         };
 
         fetchTranscript();
-    }, [videoId, onTranscriptFetched, onError, retryCount]);
+    }, [videoId, onTranscriptFetched, onError]);
 
     return null;
 }

@@ -1,28 +1,60 @@
+// app/api/youtube/transcript/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/authOptions';
-import { extractVideoId, getVideoMetadata, getVideoTranscript } from '@/lib/youtube';
+import { extractVideoId } from '@/lib/youtube';
 import { logger } from '@/lib/logger';
 
 export async function POST(req: NextRequest) {
-
-    logger.info('API Key Check', {
-        hasApiKey: !!process.env.YOUTUBE_API_KEY,
-        apiKeyLength: process.env.YOUTUBE_API_KEY?.length || 0,
-        environment: process.env.NODE_ENV
-    });
-
     const session = await getServerSession(authOptions);
-    if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (!session?.user) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
 
-    const { url } = await req.json();
-    const videoId = extractVideoId(url);
-    if (!videoId) return NextResponse.json({ error: 'Invalid YouTube URL' }, { status: 400 });
+    try {
+        const { url } = await req.json();
+        const videoId = extractVideoId(url);
 
-    const [metadata, transcript] = await Promise.all([
-        getVideoMetadata(videoId),
-        getVideoTranscript(videoId)
-    ]);
+        if (!videoId) {
+            return NextResponse.json({ error: 'Invalid YouTube URL' }, { status: 400 });
+        }
 
-    return NextResponse.json({ success: true, metadata, transcript });
+        // Use the proxy endpoint internally
+        const proxyResponse = await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/youtube/proxy`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ videoId })
+        });
+
+        const data = await proxyResponse.json();
+
+        if (!proxyResponse.ok) {
+            throw new Error(data.error || 'Failed to fetch transcript');
+        }
+
+        // Format response to match expected structure
+        return NextResponse.json({
+            success: true,
+            metadata: {
+                videoId,
+                title: data.playerResponse?.videoDetails?.title || 'Untitled Video',
+                thumbnailUrl: `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`,
+                channelTitle: data.playerResponse?.videoDetails?.author || '',
+                duration: data.playerResponse?.videoDetails?.lengthSeconds || ''
+            },
+            transcript: data.transcript
+        });
+
+    } catch (error) {
+        logger.error('Transcript route error', {
+            error: error instanceof Error ? error.message : String(error)
+        });
+
+        return NextResponse.json({
+            error: 'Failed to fetch transcript',
+            details: error instanceof Error ? error.message : 'Unknown error'
+        }, { status: 500 });
+    }
 }

@@ -15,30 +15,41 @@ export async function POST(req: NextRequest) {
 
         logger.info('Proxying YouTube request', { videoId });
 
-        // Your Cloudflare Worker URL
-        const WORKER_URL = process.env.CLOUDFLARE_WORKER_URL ||
-            'https://merukaji-youtube-proxy.merukaji413.workers.dev';
+        const WORKER_URL = 'https://merukaji-youtube-proxy.merukaji413.workers.dev';
 
         const response = await fetch(`${WORKER_URL}?videoId=${videoId}`, {
             method: 'GET',
             headers: {
-                'Content-Type': 'application/json',
+                'Accept': 'application/json',
             },
-            // Add timeout to prevent hanging
-            signal: AbortSignal.timeout(30000) // 30 second timeout
+            signal: AbortSignal.timeout(30000)
         });
 
         const data = await response.json();
 
-        if (!response.ok) {
-            logger.error('Cloudflare Worker error', {
+        if (!response.ok || data.error) {
+            logger.error('Worker returned error', {
                 status: response.status,
                 error: data.error,
                 videoId
             });
 
-            throw new Error(data.error || 'Failed to fetch from proxy');
+            return NextResponse.json(
+                { error: data.error || 'Failed to fetch transcript' },
+                { status: response.status || 500 }
+            );
         }
+
+        // Convert the Innertube API response to match existing format
+        const formattedResponse = {
+            success: true,
+            playerResponse: {
+                videoDetails: data.videoDetails
+            },
+            transcript: data.transcript,
+            languageCode: data.languageCode,
+            trackName: data.trackName
+        };
 
         logger.info('Successfully fetched transcript', {
             videoId,
@@ -46,7 +57,7 @@ export async function POST(req: NextRequest) {
             languageCode: data.languageCode
         });
 
-        return NextResponse.json(data);
+        return NextResponse.json(formattedResponse);
 
     } catch (error) {
         logger.error('YouTube proxy error', {
@@ -54,23 +65,8 @@ export async function POST(req: NextRequest) {
             stack: error instanceof Error ? error.stack : undefined
         });
 
-        // Provide more specific error messages
-        if (error instanceof Error) {
-            if (error.name === 'AbortError') {
-                return NextResponse.json(
-                    { error: 'Request timeout - video transcript fetch took too long' },
-                    { status: 504 }
-                );
-            }
-
-            return NextResponse.json(
-                { error: error.message },
-                { status: 500 }
-            );
-        }
-
         return NextResponse.json(
-            { error: 'Failed to fetch video data' },
+            { error: error instanceof Error ? error.message : 'Failed to fetch video data' },
             { status: 500 }
         );
     }
