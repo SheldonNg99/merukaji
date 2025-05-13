@@ -14,7 +14,9 @@ export default function ClientTranscriptFetcher({
     onTranscriptFetched,
     onError
 }: TranscriptFetcherProps) {
-    const [, setIsLoading] = useState(false);
+    const [isLoading, setIsLoading] = useState(false);
+    const [retryCount, setRetryCount] = useState(0);
+    const MAX_RETRIES = 3;
 
     // HTML entities mapping
     const htmlEntities: HtmlEntities = {
@@ -35,11 +37,10 @@ export default function ClientTranscriptFetcher({
 
     useEffect(() => {
         const fetchTranscript = async () => {
-            if (!videoId) return;
+            if (!videoId || isLoading) return;
 
             setIsLoading(true);
             try {
-                // Use our proxy endpoint instead of direct YouTube access
                 const response = await fetch('/api/youtube/proxy', {
                     method: 'POST',
                     headers: {
@@ -48,12 +49,22 @@ export default function ClientTranscriptFetcher({
                     body: JSON.stringify({ videoId })
                 });
 
-                if (!response.ok) {
-                    const error = await response.json();
-                    throw new Error(error.error || 'Failed to fetch video data');
+                const contentType = response.headers.get('content-type');
+                if (!contentType || !contentType.includes('application/json')) {
+                    throw new Error('Invalid response type from server');
                 }
 
-                const { playerResponse, transcript: transcriptXml } = await response.json();
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error || `Server error: ${response.status}`);
+                }
+
+                if (!data.success) {
+                    throw new Error(data.error || 'Failed to fetch video data');
+                }
+
+                const { playerResponse, transcript: transcriptXml } = data;
 
                 // Extract video metadata
                 const metadata: VideoMetadata = {
@@ -67,14 +78,9 @@ export default function ClientTranscriptFetcher({
 
                 // Parse the transcript XML
                 const segments: TranscriptSegment[] = [];
-
-                // Define the regex pattern
                 const pattern = /<text start="([\d.]+)" dur="([\d.]+)"[^>]*>(.*?)<\/text>/g;
-
-                // Use type assertion for the matchAll result
                 const matches = [...transcriptXml.matchAll(pattern)] as RegExpMatchArray[];
 
-                // Process matches with proper typing
                 matches.forEach(match => {
                     if (match[1] && match[2] && match[3]) {
                         segments.push({
@@ -85,20 +91,38 @@ export default function ClientTranscriptFetcher({
                     }
                 });
 
-                // Call the success callback with both transcript and metadata
+                if (segments.length === 0) {
+                    throw new Error('No transcript segments found');
+                }
+
+                // Reset retry count on success
+                setRetryCount(0);
                 onTranscriptFetched(segments, metadata);
 
             } catch (error) {
-                onError(error instanceof Error ? error.message : 'Failed to fetch transcript');
+                const errorMessage = error instanceof Error ? error.message : 'Failed to fetch transcript';
+
+                // Retry logic
+                if (retryCount < MAX_RETRIES) {
+                    console.log(`Retrying... (attempt ${retryCount + 1}/${MAX_RETRIES})`);
+                    setRetryCount(prev => prev + 1);
+                    setTimeout(() => {
+                        setIsLoading(false); // Reset loading to allow retry
+                    }, 2000 * (retryCount + 1)); // Exponential backoff
+                    return;
+                }
+
+                console.error('Transcript fetch error:', error);
+                onError(errorMessage);
             } finally {
-                setIsLoading(false);
+                if (retryCount >= MAX_RETRIES) {
+                    setIsLoading(false);
+                }
             }
         };
 
-        // Start fetching when component mounts
         fetchTranscript();
-    }, [videoId, onTranscriptFetched, onError]);
+    }, [videoId, onTranscriptFetched, onError, retryCount]);
 
-    // This is a utility component, no UI needed
     return null;
 }
