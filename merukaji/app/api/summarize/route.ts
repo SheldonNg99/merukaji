@@ -3,12 +3,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/authOptions';
 import { supabaseAdmin } from '@/lib/supabase';
-import { extractVideoId, getVideoTranscript, getVideoMetadata } from '@/lib/youtube';
 import { convertTranscriptToParagraphs, formatSummary } from '@/lib/textProcessing';
 import { checkCreditAvailability } from '@/lib/rateLimiter';
 import { generateSummaryWithFallback } from '@/lib/fallbackMechanisms';
 import { validateYouTubeUrl } from '@/lib/securityUtils';
 import { logger } from '@/lib/logger';
+import { TranscriptSegment } from '@/types/youtube';
 
 export async function POST(req: NextRequest) {
     const requestId = crypto.randomUUID();
@@ -34,7 +34,8 @@ export async function POST(req: NextRequest) {
                 requestId,
                 url: body.url,
                 summaryType: body.summaryType,
-                hasMetadata: !!body.metadata
+                hasMetadata: !!body.metadata,
+                hasTranscript: !!body.transcript
             });
         } catch (error) {
             logger.error('Failed to parse request body', {
@@ -44,7 +45,7 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
         }
 
-        const { url, summaryType = 'short', metadata: providedMetadata } = body;
+        const { url, summaryType = 'short', metadata: providedMetadata, transcript: providedTranscript } = body;
 
         if (!url) {
             logger.warn('No URL provided', { requestId });
@@ -62,13 +63,6 @@ export async function POST(req: NextRequest) {
                 details: 'URL must be in format: https://www.youtube.com/watch?v=VIDEO_ID or https://youtu.be/VIDEO_ID'
             }, { status: 400 });
         }
-
-        const videoId = extractVideoId(url);
-        if (!videoId) {
-            return NextResponse.json({ error: 'Could not extract video ID' }, { status: 400 });
-        }
-
-        logger.info('Video ID extracted', { requestId, videoId });
 
         // 4. Calculate credit cost
         const creditCost = summaryType === 'comprehensive' ? 2 : 1;
@@ -100,14 +94,14 @@ export async function POST(req: NextRequest) {
             .from('summaries')
             .select('*')
             .eq('user_id', userId)
-            .eq('video_id', videoId)
+            .eq('video_id', providedMetadata.videoId)
             .eq('summary_type', summaryType)
             .single();
 
         if (cached) {
             logger.info('Cache hit', {
                 requestId,
-                videoId,
+                videoId: providedMetadata.videoId,
                 summaryId: cached.id
             });
 
@@ -128,27 +122,17 @@ export async function POST(req: NextRequest) {
 
         logger.info('Cache miss, proceeding with summary generation', {
             requestId,
-            videoId
+            videoId: providedMetadata.videoId
         });
 
-        // 7. Process Video and Generate Summary
+        // 7. Process Transcript and Generate Summary
         try {
-            // Use provided metadata or fetch new
-            const metadata = providedMetadata || await getVideoMetadata(videoId);
-            const transcript = await getVideoTranscript(videoId);
-
-            logger.info('Video data fetched', {
-                requestId,
-                hasTranscript: !!transcript,
-                transcriptLength: transcript?.length || 0,
-                hasMetadata: !!metadata
-            });
-
-            if (!transcript || transcript.length === 0) {
-                throw new Error('No transcript available for this video');
+            if (!providedTranscript || !providedMetadata) {
+                throw new Error('Missing transcript or metadata');
             }
 
             // Process transcript
+            const transcript = providedTranscript as TranscriptSegment[];
             const paragraphs = convertTranscriptToParagraphs(transcript);
             const processedTranscript = paragraphs.join('\n\n');
 
@@ -162,7 +146,7 @@ export async function POST(req: NextRequest) {
 
             const summaryResult = await generateSummaryWithFallback(
                 processedTranscript,
-                metadata,
+                providedMetadata,
                 summaryType,
                 preferredProvider
             );
@@ -179,10 +163,10 @@ export async function POST(req: NextRequest) {
             const { data: transaction, error: transactionError } = await supabaseAdmin
                 .rpc('handle_summary_creation', {
                     p_user_id: userId,
-                    p_video_id: videoId,
+                    p_video_id: providedMetadata.videoId,
                     p_summary_type: summaryType,
                     p_summary: formattedSummary,
-                    p_metadata: metadata,
+                    p_metadata: providedMetadata,
                     p_provider: summaryResult.provider,
                     p_credit_cost: creditCost,
                     p_credits_description: `Used: ${creditCost} credit${creditCost > 1 ? 's' : ''} for ${summaryType} summary`
@@ -215,7 +199,7 @@ export async function POST(req: NextRequest) {
                 .from('usage_stats')
                 .insert({
                     user_id: userId,
-                    video_id: videoId,
+                    video_id: providedMetadata.videoId,
                     action: 'summarize',
                     timestamp: new Date().toISOString(),
                     reset: false
@@ -223,7 +207,7 @@ export async function POST(req: NextRequest) {
 
             logger.info('Summary process completed successfully', {
                 requestId,
-                videoId,
+                videoId: providedMetadata.videoId,
                 summaryId: transaction.summary_id,
                 creditsUsed: creditCost,
                 remainingCredits: newBalance
@@ -233,7 +217,7 @@ export async function POST(req: NextRequest) {
                 success: true,
                 id: transaction.summary_id,
                 summary: formattedSummary,
-                metadata,
+                metadata: providedMetadata,
                 provider: summaryResult.provider,
                 timestamp: new Date().toISOString(),
                 credits: {
@@ -245,7 +229,7 @@ export async function POST(req: NextRequest) {
         } catch (error) {
             logger.error('Error processing video', {
                 requestId,
-                videoId,
+                videoId: providedMetadata?.videoId,
                 error: error instanceof Error ? error.message : String(error),
                 stack: error instanceof Error ? error.stack : undefined
             });

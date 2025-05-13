@@ -1,13 +1,13 @@
-// app/components/HomePage.tsx
+// Updated HomePage.tsx
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { BookDown } from 'lucide-react';
 import { useToast } from '@/app/components/contexts/ToastContext';
-import SummaryResultsPage from '@/app/components/SummaryResultsPage';
-import { VideoMetadata } from '@/types/youtube';
+import { VideoMetadata, TranscriptSegment } from '@/types/youtube';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
+import ClientTranscriptFetcher from './ClientTranscriptFetcher';
 
 const YOUTUBE_URL_PATTERN = /^(https?:\/\/)?(www\.)?(youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})$/;
 
@@ -16,22 +16,12 @@ export default function HomePage() {
     const [isFocused, setIsFocused] = useState(false);
     const [youtubeUrl, setYoutubeUrl] = useState('');
     const [isLoading, setIsLoading] = useState(false);
-    const [summaryData, setSummaryData] = useState<{
-        summary: string;
-        metadata: VideoMetadata;
-        timestamp: string;
-        provider: string;
-    } | null>(null);
+    const [shouldFetchTranscript, setShouldFetchTranscript] = useState(false);
+
     const [summaryType] = useState<'short' | 'comprehensive'>('short');
     const [isSummarizing, setIsSummarizing] = useState(false);
-    const [mounted, setMounted] = useState(false);
     const router = useRouter();
     const { data: session } = useSession();
-
-
-    useEffect(() => {
-        setMounted(true);
-    }, []);
 
     const extractVideoId = (url: string): string | null => {
         const match = url.match(YOUTUBE_URL_PATTERN);
@@ -42,49 +32,9 @@ export default function HomePage() {
         return YOUTUBE_URL_PATTERN.test(url);
     };
 
-    const handleSubmit = async () => {
-        if (!youtubeUrl) {
-            showToast('Please enter a YouTube URL', 'error');
-            return;
-        }
-
-        // Validate YouTube URL format
-        if (!validateYoutubeUrl(youtubeUrl)) {
-            showToast('Please enter a valid YouTube URL (e.g., https://youtube.com/watch?v=... or https://youtu.be/...)', 'error');
-            return;
-        }
-
-        setIsLoading(true);
-        setSummaryData(null);
-        setIsSummarizing(false);
-
+    const handleTranscriptFetched = async (transcript: TranscriptSegment[], metadata: VideoMetadata) => {
         try {
-            // First fetch transcript
-            const transcriptResponse = await fetch('/api/youtube/transcript', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ url: youtubeUrl }),
-            });
-
-            const transcriptData = await transcriptResponse.json();
-
-            if (!transcriptResponse.ok) {
-                throw new Error(transcriptData.error || 'Failed to process video');
-            }
-
-            if (!transcriptData.transcript || !transcriptData.metadata) {
-                throw new Error('Failed to extract video information');
-            }
-
-            // Then generate summary
             setIsSummarizing(true);
-
-            const videoId = extractVideoId(youtubeUrl);
-            if (!videoId) {
-                throw new Error('Invalid YouTube URL');
-            }
 
             const summaryResponse = await fetch('/api/summarize', {
                 method: 'POST',
@@ -93,9 +43,10 @@ export default function HomePage() {
                 },
                 body: JSON.stringify({
                     url: youtubeUrl,
-                    videoId,
+                    videoId: metadata.videoId,
                     summaryType,
-                    metadata: transcriptData.metadata
+                    metadata,
+                    transcript
                 }),
             });
 
@@ -115,29 +66,10 @@ export default function HomePage() {
                 throw new Error(summaryData.error || 'Failed to generate summary');
             }
 
-            if (!summaryData.success) {
-                throw new Error(summaryData.error || 'Failed to generate summary');
-            }
-
-            // Show appropriate toast message
-            if (summaryData.cached) {
-                showToast('Summary retrieved from cache', 'info', 2000);
-            } else {
-                showToast('Summary generated successfully', 'success', 2000);
-            }
-
-            // Navigate to summary page or set summary data
+            // Navigate to summary page
             if (summaryData.id) {
                 router.push(`/summary/${summaryData.id}`);
-            } else {
-                setSummaryData({
-                    summary: summaryData.summary,
-                    metadata: summaryData.metadata,
-                    timestamp: summaryData.timestamp,
-                    provider: summaryData.provider
-                });
             }
-
         } catch (err) {
             console.error('Error during summary generation:', err);
             const errorMessage = err instanceof Error ? err.message : 'An unexpected error occurred';
@@ -145,26 +77,69 @@ export default function HomePage() {
         } finally {
             setIsLoading(false);
             setIsSummarizing(false);
+            setShouldFetchTranscript(false);
         }
     };
 
-    if (!mounted) {
-        return null;
-    }
+    const handleSubmit = async () => {
+        if (!youtubeUrl) {
+            showToast('Please enter a YouTube URL', 'error');
+            return;
+        }
 
-    // If we have summary data, show the results
-    if (summaryData) {
-        return (
-            <div className="w-full min-h-screen bg-gray-50 dark:bg-[#202120]">
-                <SummaryResultsPage
-                    summary={summaryData.summary}
-                    metadata={summaryData.metadata}
-                    timestamp={summaryData.timestamp}
-                    provider={summaryData.provider}
-                />
-            </div>
-        );
-    }
+        if (!validateYoutubeUrl(youtubeUrl)) {
+            showToast('Please enter a valid YouTube URL (e.g., https://youtube.com/watch?v=... or https://youtu.be/...)', 'error');
+            return;
+        }
+
+        const videoId = extractVideoId(youtubeUrl);
+        if (!videoId) {
+            showToast('Could not extract video ID from URL', 'error');
+            return;
+        }
+
+        setIsLoading(true);
+        setIsSummarizing(false);
+        setShouldFetchTranscript(false);
+
+        try {
+            // Check cache first
+            const cacheResponse = await fetch('/api/summary/check-cache', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    videoId,
+                    summaryType
+                }),
+            });
+
+            if (!cacheResponse.ok) {
+                throw new Error('Failed to check cache');
+            }
+
+            const cacheResult = await cacheResponse.json();
+
+            // If we have a cache hit, redirect to the summary
+            if (cacheResult.success && cacheResult.cached) {
+                showToast('Summary retrieved from cache', 'info', 2000);
+
+                if (cacheResult.data.id) {
+                    router.push(`/summary/${cacheResult.data.id}`);
+                    setIsLoading(false);
+                    return;
+                }
+            }
+
+            // No cache hit, proceed with transcript fetching
+            setShouldFetchTranscript(true);
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
+            showToast(errorMessage, 'error', 5000);
+            setIsLoading(false);
+        }
+    };
 
     return (
         <div className="w-full min-h-screen bg-[#f8f9fa] dark:bg-[#202120] flex flex-col items-center transition-colors">
@@ -179,7 +154,7 @@ export default function HomePage() {
                     </p>
                 </div>
 
-                {/* Search Section - Keep URL input only */}
+                {/* Search Section */}
                 <div className={`w-full max-w-2xl transition-all duration-300 ease-in-out ${isFocused ? 'scale-105' : 'scale-100'}`}>
                     <div className="flex gap-3 bg-[#f2f5f6] dark:bg-[#2E2E2E] p-2 rounded-2xl shadow-md hover:shadow-lg transition-shadow duration-300 border border-transparent dark:border-gray-700">
                         {/* Search Input */}
@@ -221,6 +196,19 @@ export default function HomePage() {
                     </div>
                 </div>
             </div>
+
+            {/* ClientTranscriptFetcher - Only render when needed */}
+            {shouldFetchTranscript && (
+                <ClientTranscriptFetcher
+                    videoId={extractVideoId(youtubeUrl) || ''}
+                    onTranscriptFetched={handleTranscriptFetched}
+                    onError={(error) => {
+                        showToast(error, 'error', 5000);
+                        setIsLoading(false);
+                        setShouldFetchTranscript(false);
+                    }}
+                />
+            )}
         </div>
     );
 }

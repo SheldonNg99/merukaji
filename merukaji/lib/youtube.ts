@@ -1,6 +1,5 @@
 import axios from 'axios';
 import { YoutubeTranscript } from 'youtube-transcript';
-import { CustomYouTubeTranscript } from './youtube-transcript-custom';
 import { supabaseAdmin } from './supabase';
 import {
     VideoMetadata,
@@ -110,40 +109,22 @@ export class YouTubeProcessor {
 
             this.requestsThisMinute++;
 
-            // Try the original method first
-            try {
-                const transcriptData = await YoutubeTranscript.fetchTranscript(videoId);
-                logger.info('Transcript fetched successfully with youtube-transcript', { videoId });
+            const transcriptData = await YoutubeTranscript.fetchTranscript(videoId);
 
-                return transcriptData.map(segment => ({
-                    text: segment.text,
-                    offset: segment.offset,
-                    duration: segment.duration
-                }));
-            } catch (originalError) {
-                logger.warn('Original transcript method failed, trying custom method', {
-                    videoId,
-                    error: originalError instanceof Error ? originalError.message : String(originalError)
-                });
-
-                // Fallback to custom method
-                const customTranscript = await CustomYouTubeTranscript.fetchTranscript(videoId);
-                logger.info('Transcript fetched successfully with custom method', { videoId });
-
-                return customTranscript;
-            }
+            return transcriptData.map(segment => ({
+                text: segment.text,
+                offset: segment.offset,
+                duration: segment.duration
+            }));
         } catch (error) {
             if (retryCount < MAX_RETRY_ATTEMPTS) {
+                // Exponential backoff
                 const delayTime = RETRY_DELAY * Math.pow(2, retryCount);
                 await this.delay(delayTime);
                 return this.getTranscript(videoId, retryCount + 1);
             }
 
-            logger.error(`Failed to get transcript for video ${videoId}:`, {
-                error: error instanceof Error ? error.message : String(error),
-                stack: error instanceof Error ? error.stack : undefined
-            });
-
+            console.error(`Failed to get transcript for video ${videoId}:`, error);
             throw new Error(`Could not retrieve transcript: ${error instanceof Error ? error.message : String(error)}`);
         }
     }
@@ -151,7 +132,6 @@ export class YouTubeProcessor {
     /**
      * Get video metadata from YouTube API
      */
-    // In lib/youtube.ts
     async getVideoMetadata(videoId: string, retryCount = 0): Promise<VideoMetadata> {
         if (!YOUTUBE_API_KEY) {
             throw new Error('YouTube API key is not configured');
@@ -165,14 +145,7 @@ export class YouTubeProcessor {
             this.requestsThisMinute++;
 
             const response = await axios.get(
-                `https://www.googleapis.com/youtube/v3/videos?id=${videoId}&part=snippet,contentDetails&key=${YOUTUBE_API_KEY}`,
-                {
-                    headers: {
-                        'Referer': process.env.NEXT_PUBLIC_APP_URL || 'https://merukaji.com',
-                        'User-Agent': 'Merukaji/1.0',
-                        'Accept': 'application/json'
-                    }
-                }
+                `https://www.googleapis.com/youtube/v3/videos?id=${videoId}&part=snippet,contentDetails&key=${YOUTUBE_API_KEY}`
             );
 
             const videoData = response.data.items[0];
@@ -190,42 +163,22 @@ export class YouTubeProcessor {
                 duration: videoData.contentDetails.duration
             };
         } catch (error) {
-            // Handle 403 specifically
-            if (axios.isAxiosError(error) && error.response?.status === 403) {
-                logger.error('YouTube API 403 Error', {
-                    videoId,
-                    status: error.response.status,
-                    data: error.response.data,
-                    headers: error.response.headers
-                });
-
-                // Return minimal metadata without API
-                return this.getMetadataFallback(videoId);
-            }
-
             if (retryCount < MAX_RETRY_ATTEMPTS) {
+                // Exponential backoff
                 const delayTime = RETRY_DELAY * Math.pow(2, retryCount);
                 await this.delay(delayTime);
                 return this.getVideoMetadata(videoId, retryCount + 1);
             }
 
-            logger.error(`Failed to get metadata for video ${videoId}:`);
+            console.error(`Failed to get metadata for video ${videoId}:`, error);
 
-            // Fallback to basic metadata
-            return this.getMetadataFallback(videoId);
+            // Fallback: Return basic metadata without API
+            return {
+                videoId,
+                title: 'Unknown Title',
+                thumbnailUrl: `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`
+            };
         }
-    }
-
-    // Add a fallback method that doesn't use the API
-    private getMetadataFallback(videoId: string): VideoMetadata {
-        return {
-            videoId,
-            title: 'Video Title Unavailable',
-            thumbnailUrl: `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`,
-            channelTitle: 'Channel information unavailable',
-            publishedAt: new Date().toISOString(),
-            duration: 'Unknown'
-        };
     }
 
     /**
